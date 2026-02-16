@@ -1,0 +1,36 @@
+{
+  "name": "mendix-copilot",
+  "version": "0.1.0",
+  "description": "MCP Server that gives Claude access to your Mendix app model",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mendix-copilot": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": ["mendix", "mcp", "claude", "ai", "low-code"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "mendixplatformsdk": "^5.0.0",
+    "mendixmodelsdk": "^4.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
