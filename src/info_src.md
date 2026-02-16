@@ -8,7 +8,7 @@ Root source folder. Bevat alle TypeScript broncode voor de Mendix Copilot MCP Se
 ## Bestanden
 | Bestand | Doel | Status |
 |---------|------|--------|
-| index.ts | Entry point — MCP server setup, tool/resource/prompt registratie | 📋 Gepland |
+| index.ts | Entry point voor MCP server setup en toolregistratie | Geimplementeerd |
 
 ## Subfolders
 | Folder | Doel |
@@ -20,9 +20,11 @@ Root source folder. Bevat alle TypeScript broncode voor de Mendix Copilot MCP Se
 | prompts/ | MCP prompt templates (voorgedefinieerde workflows) |
 
 ## Hoe het werkt
-`index.ts` is het startpunt. Het maakt de MCP server aan, initialiseert de Mendix client, en registreert alle tools/resources/prompts uit de subfolders.
+`index.ts` is het startpunt. Het laadt config uit env vars en CLI flags, maakt en
+verbindt een `MendixClient`, registreert navigation- en domain-model tools, en
+start de MCP stdio transport. Bij SIGINT/SIGTERM wordt de client netjes opgeruimd.
 
 ## Afhankelijkheden
-- `@modelcontextprotocol/sdk` — MCP server framework
-- `mendixplatformsdk` + `mendixmodelsdk` — Mendix SDK
-- `zod` — Schema validatie voor tool parameters
+- `@modelcontextprotocol/sdk` - MCP server framework
+- `mendixplatformsdk` + `mendixmodelsdk` - Mendix SDK
+- `zod` - Schema validatie voor tool parameters

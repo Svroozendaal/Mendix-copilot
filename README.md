@@ -24,6 +24,12 @@ export MENDIX_TOKEN="jouw-personal-access-token"
 claude mcp add mendix-copilot -- mendix-copilot --app-id "jouw-app-id"
 ```
 
+## Gebruik Met Codex
+
+Voor een volledige stap-voor-stap uitleg (App ID vinden, PAT scopes, branch kiezen, en Codex MCP koppeling):
+
+- Zie `docs/HOW-TO-USE-CODEX.md`
+
 ## Status
 
 🚧 **In ontwikkeling** — Zie [docs/MVP-PLAN.md](docs/MVP-PLAN.md) voor de roadmap.

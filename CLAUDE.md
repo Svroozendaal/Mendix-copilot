@@ -174,8 +174,8 @@ Wanneer je als Claude Code aan dit project werkt:
 ## Huidige Status
 
 <!-- Dit wordt automatisch bijgewerkt door /status -->
-**Fase**: Skelet opgezet, nog geen functionaliteit geïmplementeerd
-**Volgende stap**: Fase 1 — MCP Server fundament + eerste 3 tools
+**Fase**: Fase 1 in uitvoering - fundament + navigation tools + domain model tools geimplementeerd
+**Volgende stap**: Fase 1 - Prompt 4 (microflow en logic tools) implementeren
 **Blokkeerders**: Geen
 
 ## Permissions
