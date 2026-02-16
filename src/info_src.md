@@ -14,6 +14,8 @@ Root source folder. Bevat alle TypeScript broncode voor Mendix Copilot hosts (MC
 | Folder | Doel |
 |--------|------|
 | config/ | Configuratie management (env vars, defaults, CLI fallback) |
+| change-planner/ | Natural language -> ChangePlan DSL planning engine |
+| change-executor/ | Validatie, preview en execution orchestration voor ChangePlans |
 | core/ | Gedeelde core service (`text + meta`) bovenop MendixClient + serializers |
 | mendix/ | Mendix SDK facade, cache, serializers |
 | tools/ | MCP tool definities |
@@ -23,7 +25,7 @@ Root source folder. Bevat alle TypeScript broncode voor Mendix Copilot hosts (MC
 
 ## Runtime gedrag
 - `src/index.ts` start MCP server op stdio en logt op stderr.
-- `src/web/api/index.ts` start `copilot-api` op HTTP met SSE chat events.
+- `src/web/api/index.ts` start `copilot-api` op HTTP met SSE chat- en plan-execute events.
 
 ## Afhankelijkheden
 - `@modelcontextprotocol/sdk`

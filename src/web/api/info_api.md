@@ -24,6 +24,18 @@ Lokale HTTP API (`copilot-api`) voor de localhost web UI.
   - `tool_result`
   - `final`
   - `error` (bij uitzonderingen)
+- Change planning/execution endpoints:
+  - `POST /api/plan`
+  - `POST /api/plan/validate`
+  - `POST /api/plan/execute`
+- `POST /api/plan/execute` gebruikt `text/event-stream` en stuurt:
+  - `command_start`
+  - `command_success`
+  - `command_failed`
+  - `commit_done`
+  - `postcheck_results`
+  - `final`
+  - `error`
 
 ## Security
 - `MENDIX_TOKEN` wordt alleen server-side gelezen.
@@ -34,3 +46,10 @@ Lokale HTTP API (`copilot-api`) voor de localhost web UI.
   - `COPILOT_CHAT_STEP_TIMEOUT_MS`
   - `COPILOT_CHAT_TOTAL_TIMEOUT_MS`
 - Bij timeout wordt een `error` event teruggestuurd en wordt de SSE stream afgesloten.
+
+## Approval en execute
+- `POST /api/plan/execute` vereist `approvalToken`.
+- Als `COPILOT_APPROVAL_TOKEN` is gezet, moet token exact matchen.
+- Destructive plannen vereisen extra `confirmText`.
+- Execution mode is momenteel `simulated`.
+- UI default blijft veilig: plan-only en expliciete approve vereist voor execute.

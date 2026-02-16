@@ -1,5 +1,10 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { type ZodTypeAny, z } from "zod";
+import { executePlan, requiredConfirmationText } from "../../change-executor/executor.js";
+import { generatePreview } from "../../change-executor/previewGenerator.js";
+import { validatePlan, type ValidationAppContext } from "../../change-executor/validator.js";
+import { planFromNaturalLanguage } from "../../change-planner/planner/planFromNaturalLanguage.js";
+import type { ChangePlan } from "../../change-planner/dsl/changePlan.schema.js";
 import { ChatRunner } from "./chat-runner.js";
 import { ApiError, toApiError, toApiErrorResponse } from "./errors.js";
 import {
@@ -17,6 +22,9 @@ import {
   moduleNameParamSchema,
   moduleQuerySchema,
   optionalModuleQuerySchema,
+  planBodySchema,
+  planExecuteBodySchema,
+  planValidateBodySchema,
   qualifiedNameParamSchema,
   searchQuerySchema,
 } from "./schemas.js";
@@ -96,6 +104,81 @@ function parsePositiveIntegerEnv(
   return parsed;
 }
 
+function moduleFromQualifiedName(qualifiedName: string): string | undefined {
+  const separatorIndex = qualifiedName.indexOf(".");
+  if (separatorIndex <= 0) {
+    return undefined;
+  }
+  return qualifiedName.slice(0, separatorIndex);
+}
+
+function approvalTokenIsValid(token: string): boolean {
+  const expectedToken = process.env.COPILOT_APPROVAL_TOKEN?.trim();
+  if (!expectedToken) {
+    return token.trim().length > 0;
+  }
+  return expectedToken === token.trim();
+}
+
+async function buildValidationContext(
+  core: ReturnType<CopilotSessionManager["getCoreOrThrow"]>,
+  plan: ChangePlan
+): Promise<ValidationAppContext> {
+  const modules = (await core.listModules()).meta.modules;
+  const entityMap = new Map<string, { qualifiedName: string; module: string; attributes: string[] }>();
+  const microflowSet = new Set<string>();
+  const moduleNamesToScanForMicroflows = new Set<string>();
+
+  for (const command of plan.commands) {
+    if (command.type === "add_attribute" || command.type === "generate_crud") {
+      const entityName = command.entity;
+      if (!entityMap.has(entityName.toLowerCase())) {
+        try {
+          const entity = (await core.getEntityDetails(entityName)).meta.entity;
+          entityMap.set(entityName.toLowerCase(), {
+            qualifiedName: entity.qualifiedName,
+            module: entity.moduleName,
+            attributes: entity.attributes.map((attribute) => attribute.name),
+          });
+        } catch {
+          // validator zal entity-not-found afhandelen.
+        }
+      }
+    }
+
+    if (command.type === "create_microflow") {
+      moduleNamesToScanForMicroflows.add(command.module);
+    }
+  }
+
+  for (const moduleName of moduleNamesToScanForMicroflows) {
+    try {
+      const microflows = (await core.listMicroflows(moduleName)).meta.microflows;
+      microflows.forEach((microflow) => microflowSet.add(microflow.qualifiedName));
+    } catch {
+      // validator zal module errors afhandelen.
+    }
+  }
+
+  return {
+    modules,
+    entities: Array.from(entityMap.values()),
+    microflows: Array.from(microflowSet),
+    systemModules: ["System", "Administration"],
+  };
+}
+
+function affectedModulesFromArtifacts(artifacts: string[]): string[] {
+  const moduleSet = new Set<string>();
+  for (const artifact of artifacts) {
+    const moduleName = moduleFromQualifiedName(artifact);
+    if (moduleName) {
+      moduleSet.add(moduleName);
+    }
+  }
+  return Array.from(moduleSet).sort((left, right) => left.localeCompare(right));
+}
+
 function configureCors(app: Express): void {
   app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -123,6 +206,7 @@ export function createCopilotApiApp(options: CreateCopilotApiAppOptions): Copilo
     process.env.COPILOT_CHAT_TOTAL_TIMEOUT_MS,
     240000
   );
+  const planStore = new Map<string, ChangePlan>();
 
   app.disable("x-powered-by");
   configureCors(app);
@@ -306,6 +390,142 @@ export function createCopilotApiApp(options: CreateCopilotApiAppOptions): Copilo
         .getCoreOrThrow()
         .getDependencies(params.qualifiedName);
       res.json(toTextResponse(result));
+    })
+  );
+
+  app.post(
+    "/api/plan",
+    wrap(async (req, res) => {
+      const body = parseWithSchema(planBodySchema, req.body ?? {});
+      const planned = await planFromNaturalLanguage(session.getCoreOrThrow(), {
+        message: body.message,
+        context: body.context,
+      });
+      planStore.set(planned.changePlan.planId, planned.changePlan);
+
+      res.json({
+        ok: true,
+        changePlan: planned.changePlan,
+        preview: planned.preview,
+      });
+    })
+  );
+
+  app.post(
+    "/api/plan/validate",
+    wrap(async (req, res) => {
+      const body = parseWithSchema(planValidateBodySchema, req.body ?? {});
+      const plan = planStore.get(body.planId);
+      if (!plan) {
+        throw new ApiError(404, `Plan '${body.planId}' niet gevonden.`);
+      }
+
+      const validationContext = await buildValidationContext(session.getCoreOrThrow(), plan);
+      const validation = validatePlan(plan, validationContext);
+      const preview = generatePreview(validation.validatedPlan);
+
+      res.json({
+        ok: validation.errors.length === 0,
+        validatedPlan: validation.validatedPlan,
+        warnings: validation.warnings,
+        errors: validation.errors,
+        preview,
+      });
+    })
+  );
+
+  app.post(
+    "/api/plan/execute",
+    wrap(async (req, res) => {
+      const body = parseWithSchema(planExecuteBodySchema, req.body ?? {});
+      if (!approvalTokenIsValid(body.approvalToken)) {
+        throw new ApiError(403, "approvalToken ongeldig.");
+      }
+
+      const plan = planStore.get(body.planId);
+      if (!plan) {
+        throw new ApiError(404, `Plan '${body.planId}' niet gevonden.`);
+      }
+
+      const validationContext = await buildValidationContext(session.getCoreOrThrow(), plan);
+      const validation = validatePlan(plan, validationContext);
+      if (validation.errors.length > 0) {
+        res.status(400).json({
+          ok: false,
+          warnings: validation.warnings,
+          errors: validation.errors,
+          preview: generatePreview(validation.validatedPlan),
+        });
+        return;
+      }
+
+      if (validation.validatedPlan.risk.destructive) {
+        const expectedConfirmText = requiredConfirmationText(validation.validatedPlan);
+        if ((body.confirmText ?? "").trim() !== expectedConfirmText) {
+          throw new ApiError(
+            400,
+            `Destructive plan vereist confirmText '${expectedConfirmText}'.`
+          );
+        }
+      }
+
+      res.status(200);
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      let isClosed = false;
+      req.on("close", () => {
+        isClosed = true;
+      });
+
+      const emit = (event: SseEventName, data: unknown): void => {
+        if (isClosed) {
+          return;
+        }
+        writeSseEvent(res, event, data);
+      };
+
+      try {
+        const execution = await executePlan(validation.validatedPlan, {
+          onEvent: (event) => {
+            emit(event.type, event);
+          },
+        });
+        const affectedModules = affectedModulesFromArtifacts(execution.affectedArtifacts);
+        const postCheck = await Promise.all(
+          affectedModules.map(async (moduleName) => {
+            const bestPractices = await session.getCoreOrThrow().getBestPractices(moduleName);
+            return {
+              module: moduleName,
+              text: bestPractices.text,
+              findingCount: bestPractices.meta.findings.length,
+            };
+          })
+        );
+
+        emit("postcheck_results", {
+          affectedModules,
+          postCheck,
+        });
+        emit("final", {
+          ok: true,
+          execution,
+          warnings: validation.warnings,
+          affectedModules,
+          postCheck,
+        });
+        planStore.delete(body.planId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        emit("error", { message });
+      } finally {
+        if (!isClosed) {
+          res.end();
+        }
+      }
     })
   );
 

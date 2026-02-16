@@ -15,7 +15,7 @@ Lokale React webapp voor Mendix Copilot (`localhost`), losgekoppeld van Mendix S
 ## Subfolders
 | Folder | Doel |
 |--------|------|
-| src/ | React UI code (connect panel, explorer, chat, quick actions, tool trace) |
+| src/ | React UI code (connect panel, explorer, quick actions, plan preview, approval flow, execution log) |
 
 ## Security
 - Frontend bevat geen Mendix token.

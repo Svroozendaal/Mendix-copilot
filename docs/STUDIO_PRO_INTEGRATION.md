@@ -20,6 +20,7 @@ De extensie kan dezelfde endpoints gebruiken als de web UI:
 - details: `GET /api/entity/:qualifiedName`, `GET /api/entity/:qualifiedName/associations`, `GET /api/microflow/:qualifiedName`, `GET /api/page/:qualifiedName`
 - audits: `GET /api/security`, `GET /api/entity-access/:qualifiedName`, `GET /api/best-practices`, `GET /api/dependencies/:qualifiedName`
 - chat/trace: `POST /api/chat` (SSE events)
+- change workflow: `POST /api/plan`, `POST /api/plan/validate`, `POST /api/plan/execute`
 
 ## Mogelijke extra endpoints voor Studio Pro
 Voor diepere IDE-integratie zijn later waarschijnlijk extra API's nodig:
@@ -30,3 +31,7 @@ Voor diepere IDE-integratie zijn later waarschijnlijk extra API's nodig:
 
 ## Notitie
 Deze specificatie blijft op architectuurniveau. Er is in deze fase nog geen C# extensiecode toegevoegd.
+
+## Prompt 3 readiness
+- De huidige Plan -> Approve -> Execute flow in de web UI kan 1-op-1 in een Studio Pro panel worden hergebruikt.
+- Alleen de execution backend hoeft later te veranderen (bijv. van lokale/simulated uitvoer naar Studio Pro extensie-acties).

@@ -55,16 +55,45 @@ Verwacht:
 Verwacht:
 - Output bevat security en best-practice bevindingen.
 
-6. Run chat:
+6. Run plan/approval flow in Chat:
 - Ga naar tab `Chat`.
-- Stel een vraag, bijvoorbeeld:
-  - `review module Sales`
-  - `security audit`
-  - `explain microflow Sales.ACT_Order_Create`
+- Geef een NL prompt, bijvoorbeeld:
+  - `Maak een nieuwe entity Invoice in module Sales`
+  - `Voeg attribuut Status toe aan Sales.Order`
+- Klik `Generate plan`.
 
 Verwacht:
-- Tool trace toont `tool_call` en `tool_result` events.
-- Eindantwoord verschijnt als assistant message.
+- Plan preview toont:
+  - summary
+  - affected artifacts
+  - risk badge (+ destructive badge als van toepassing)
+- Approve is pas mogelijk na ingevuld `approvalToken`.
+- Bij destructive plannen moet `confirmText` exact matchen.
+
+7. Approve + execution streaming:
+- Klik `Approve`.
+
+Verwacht:
+- Execution pane toont live events:
+  - `command_start`
+  - `command_success`
+  - `command_failed` (alleen bij fout)
+  - `commit_done`
+  - `postcheck_results`
+- Tab `Execution Log` toont command details + timestamp.
+- `Execution summary` toont commit en post-check output.
+
+8. Test ChangePlan API (optioneel via REST client):
+- `POST /api/plan` met body `{ "message": "Create entity Invoice in module Sales" }`
+- Neem `planId` uit de response.
+- `POST /api/plan/validate` met `{ "planId": "<planId>" }`
+- `POST /api/plan/execute` met `{ "planId": "<planId>", "approvalToken": "<token>" }`
+  - Lees response als SSE stream.
+
+Verwacht:
+- Geldige ChangePlan JSON + preview.
+- Validate response met warnings/errors.
+- Execute stream met command events + final payload (`executionMode: "simulated"`).
 
 ## Resultaat (laatste run)
 

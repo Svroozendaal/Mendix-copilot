@@ -3,7 +3,7 @@
 Mendix Copilot bestaat nu uit twee lokale gebruiksvormen op dezelfde core:
 
 - MCP server (Claude/Codex integratie)
-- Localhost web UI + `copilot-api` (chat, explorer, quick actions)
+- Localhost web UI + `copilot-api` (explorer, quick actions, plan/approval chat flow)
 
 De core blijft hetzelfde: `MendixClient` + serializers + Mendix Platform/Model SDK.
 
@@ -18,7 +18,7 @@ De core blijft hetzelfde: `MendixClient` + serializers + Mendix Platform/Model S
 - MCP resource: `mendix://app/overview`
 - MCP prompts: `review-module`, `explain-microflow`, `security-audit`
 - Localhost API endpoints + SSE chat runner
-- React web UI met connect panel, explorer, chat en quick actions
+- React web UI met connect panel, explorer, quick actions en Plan -> Approve -> Execute flow
 
 ## Vereisten
 
@@ -45,6 +45,7 @@ COPILOT_API_PORT=8787              # optioneel
 COPILOT_API_HOST=127.0.0.1         # optioneel
 COPILOT_CHAT_STEP_TIMEOUT_MS=120000   # optioneel
 COPILOT_CHAT_TOTAL_TIMEOUT_MS=240000  # optioneel
+COPILOT_APPROVAL_TOKEN=change-me      # optioneel, vereist voor /api/plan/execute
 ```
 
 Voor de web UI:
@@ -85,7 +86,26 @@ In de UI kun je:
 1. Connecten met appId + branch
 2. Modules/entities/microflows/pages verkennen
 3. Security overview en best-practices draaien
-4. Chatvragen stellen met tool trace events
+4. In Chat een wijziging plannen, preview beoordelen, approven en execution events volgen
+
+## Change Planning API (nieuw)
+
+Lokale API ondersteunt nu een ChangePlan workflow:
+
+- `POST /api/plan` -> NL vraag naar ChangePlan DSL + preview
+- `POST /api/plan/validate` -> validatie + warnings/errors + preview
+- `POST /api/plan/execute` -> approval + execution pipeline (SSE streaming, momenteel simulated mode)
+
+`/api/plan/execute` vereist altijd `approvalToken`.  
+Bij destructive plannen is ook `confirmText` verplicht en moet exact matchen met de target-string.
+
+SSE events voor execute:
+- `command_start`
+- `command_success`
+- `command_failed`
+- `commit_done`
+- `postcheck_results`
+- `final`
 
 ## MCP server starten (oude flow blijft bestaan)
 

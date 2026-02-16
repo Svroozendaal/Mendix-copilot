@@ -32,6 +32,11 @@ Alle tests voor Mendix Copilot.
 | unit/prompts/prompts.test.ts | Prompt registratie en instructietekst |
 | unit/web-api/schemas.test.ts | Zod schema validatie voor API input |
 | unit/web-api/handlers.test.ts | API route helper gedrag met mocks |
+| unit/change-planner/changePlan.schema.test.ts | ChangePlan DSL schema validatie |
+| unit/change-planner/intentClassifier.test.ts | Rule-based intent classificatie |
+| unit/change-planner/planFromNaturalLanguage.test.ts | NL -> ChangePlan generatie |
+| unit/change-executor/validator.test.ts | Plan validatie en conflictregels |
+| unit/change-executor/executor.test.ts | Preview + execution flow (simulated mode) |
 
 ## Mock bestanden
 | Bestand | Doel |

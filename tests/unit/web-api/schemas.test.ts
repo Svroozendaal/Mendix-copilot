@@ -4,6 +4,9 @@ import {
   connectBodySchema,
   domainModelQuerySchema,
   moduleQuerySchema,
+  planBodySchema,
+  planExecuteBodySchema,
+  planValidateBodySchema,
   qualifiedNameParamSchema,
   searchQuerySchema,
 } from "../../../src/web/api/schemas.js";
@@ -71,5 +74,23 @@ describe("web api schemas", () => {
         module: "Sales",
       },
     });
+  });
+
+  it("parses plan body", () => {
+    const parsed = planBodySchema.parse({
+      message: "Create entity Invoice in module Sales",
+      context: { module: "Sales" },
+    });
+    expect(parsed.context?.module).toBe("Sales");
+  });
+
+  it("validates planId and approval token schemas", () => {
+    expect(() => planValidateBodySchema.parse({ planId: "not-a-uuid" })).toThrow();
+    expect(() =>
+      planExecuteBodySchema.parse({
+        planId: "11111111-1111-4111-8111-111111111111",
+        approvalToken: "",
+      })
+    ).toThrow();
   });
 });

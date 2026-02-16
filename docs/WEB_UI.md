@@ -29,6 +29,7 @@ Een lokale Node/TypeScript HTTP-laag bovenop de core:
 - connect/disconnect/status lifecycle
 - REST endpoints voor app/model-inspectie
 - chat-runner endpoint met event streaming (SSE)
+- change workflow endpoints (`/api/plan`, `/api/plan/validate`, `/api/plan/execute`)
 
 De API vertaalt UI-aanvragen naar core-calls en levert consistente responses (`text` + optionele `meta`).
 
@@ -37,7 +38,8 @@ Een lokale React webapp die de API gebruikt:
 
 - connect panel
 - explorer + detailview
-- chat + tool trace
+- chat met Plan -> Approve -> Execute flow
+- execution log met command trace + commit/post-check events
 - quick action knoppen
 
 De UI bevat geen Mendix credentials en spreekt alleen met de lokale API.

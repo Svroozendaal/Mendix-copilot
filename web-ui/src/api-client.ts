@@ -43,6 +43,47 @@ export interface StreamEvent {
   data: unknown;
 }
 
+export interface ChangePlan {
+  planId: string;
+  createdAt: string;
+  intent: string;
+  target: {
+    module?: string;
+    entity?: string;
+    microflow?: string;
+  };
+  preconditions: string[];
+  commands: Array<{
+    type: string;
+    [key: string]: unknown;
+  }>;
+  risk: {
+    destructive: boolean;
+    impactLevel: "low" | "medium" | "high";
+    notes: string[];
+  };
+}
+
+export interface PlanPreview {
+  summary: string[];
+  affectedArtifacts: string[];
+  destructive: boolean;
+}
+
+export interface PlanResponse {
+  ok: true;
+  changePlan: ChangePlan;
+  preview: PlanPreview;
+}
+
+export interface PlanValidateResponse {
+  ok: boolean;
+  validatedPlan: ChangePlan;
+  warnings: string[];
+  errors: string[];
+  preview: PlanPreview;
+}
+
 async function parseError(response: Response): Promise<Error> {
   try {
     const body = (await response.json()) as ApiErrorResponse;
@@ -166,6 +207,23 @@ export async function getDependencies<TMeta>(qualifiedName: string): Promise<Api
   );
 }
 
+export async function createPlan(message: string, context?: { module?: string }): Promise<PlanResponse> {
+  return requestJson<PlanResponse>("/api/plan", {
+    method: "POST",
+    body: JSON.stringify({
+      message,
+      context,
+    }),
+  });
+}
+
+export async function validatePlan(planId: string): Promise<PlanValidateResponse> {
+  return requestJson<PlanValidateResponse>("/api/plan/validate", {
+    method: "POST",
+    body: JSON.stringify({ planId }),
+  });
+}
+
 function parseEventChunk(chunk: string): StreamEvent | null {
   const lines = chunk.split(/\r?\n/);
   let eventName = "message";
@@ -216,6 +274,70 @@ export async function streamChat(request: ChatRequest, onEvent: (event: StreamEv
 
   if (!response.body) {
     throw new Error("Chat streaming niet beschikbaar: response body ontbreekt.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+
+    while (true) {
+      const separatorIndex = buffer.indexOf("\n\n");
+      if (separatorIndex < 0) {
+        break;
+      }
+
+      const chunk = buffer.slice(0, separatorIndex).trim();
+      buffer = buffer.slice(separatorIndex + 2);
+      if (!chunk) {
+        continue;
+      }
+
+      const parsed = parseEventChunk(chunk);
+      if (parsed) {
+        onEvent(parsed);
+      }
+    }
+  }
+
+  const remainder = buffer.trim();
+  if (remainder) {
+    const parsed = parseEventChunk(remainder);
+    if (parsed) {
+      onEvent(parsed);
+    }
+  }
+}
+
+export async function streamPlanExecute(
+  input: {
+    planId: string;
+    approvalToken: string;
+    confirmText?: string;
+  },
+  onEvent: (event: StreamEvent) => void
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/plan/execute`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw await parseError(response);
+  }
+
+  if (!response.body) {
+    throw new Error("Execution streaming niet beschikbaar: response body ontbreekt.");
   }
 
   const reader = response.body.getReader();

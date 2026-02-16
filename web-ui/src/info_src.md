@@ -9,12 +9,13 @@ Frontend React code voor de localhost Copilot UI.
 | Bestand | Doel | Status |
 |---------|------|--------|
 | main.tsx | React bootstrap + stylesheet import | Geimplementeerd |
-| App.tsx | Hoofdscherm met connect panel, explorer, chat, actions en detail pane | Geimplementeerd |
+| App.tsx | Hoofdscherm met connect panel, explorer, quick actions en Plan -> Approve -> Execute chat flow | Geimplementeerd |
 | api-client.ts | HTTP + SSE client voor `copilot-api` | Geimplementeerd |
 | styles.css | UI layout en styling | Geimplementeerd |
 
 ## Belangrijke UX onderdelen
 - Connect/disconnect + status
 - Explorer met module/entity/microflow/page drilldown
-- Chat met tool trace events
+- Chat met plan preview, approve/reject, destructive confirm en execution streaming
+- Execution Log tab met command trace, commit message en timestamps
 - Quick actions met samengestelde workflows

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   connect,
+  createPlan,
   disconnect,
   getAssociations,
   getBestPractices,
@@ -13,11 +14,15 @@ import {
   listMicroflows,
   listModules,
   listPages,
-  streamChat,
+  streamPlanExecute,
+  validatePlan,
+  type ChangePlan,
+  type PlanPreview,
   type ApiStatus,
 } from "./api-client";
 
 type Tab = "explorer" | "chat" | "actions";
+type ExecutionView = "progress" | "log";
 
 interface ModuleInfo {
   name: string;
@@ -68,60 +73,85 @@ interface DetailOutput {
   text: string;
 }
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  text: string;
-}
-
-interface TraceEntry {
+interface ExecutionLogEntry {
   timestamp: string;
-  event: "tool_call" | "tool_result" | "error";
+  event:
+    | "command_start"
+    | "command_success"
+    | "command_failed"
+    | "commit_done"
+    | "postcheck_results"
+    | "error";
   message: string;
+  commandText?: string;
 }
 
-interface FinalPayload {
-  answer?: string;
-}
-
-interface ToolCallPayload {
-  toolName?: string;
-  input?: Record<string, unknown>;
-}
-
-interface ToolResultPayload {
-  toolName?: string;
-  summary?: string;
-  textLength?: number;
+interface ActivePlanState {
+  prompt: string;
+  changePlan: ChangePlan;
+  preview: PlanPreview;
+  validationWarnings: string[];
+  validationErrors: string[];
 }
 
 interface ErrorPayload {
   message?: string;
 }
 
+interface CommandEventPayload {
+  commandIndex?: number;
+  totalCommands?: number;
+  command?: Record<string, unknown>;
+  notes?: string[];
+  error?: string;
+}
+
+interface CommitDonePayload {
+  commitMessage?: string;
+}
+
+interface PostcheckPayload {
+  affectedModules?: string[];
+  postCheck?: Array<{ module?: string; findingCount?: number }>;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
 
-function renderTraceCall(payload: ToolCallPayload): string {
-  const name = payload.toolName ?? "onbekende-tool";
-  const input = payload.input ? JSON.stringify(payload.input) : "{}";
-  return `${name} ${input}`;
+function renderCommand(command: unknown): string | undefined {
+  if (!command || typeof command !== "object") {
+    return undefined;
+  }
+
+  try {
+    return JSON.stringify(command, null, 2);
+  } catch {
+    return undefined;
+  }
 }
 
-function renderTraceResult(payload: ToolResultPayload): string {
-  const name = payload.toolName ?? "onbekende-tool";
-  const summary = payload.summary ?? "afgerond";
-  const length = typeof payload.textLength === "number" ? ` (${payload.textLength} chars)` : "";
-  return `${name}: ${summary}${length}`;
+function riskClass(impactLevel: ChangePlan["risk"]["impactLevel"]): string {
+  if (impactLevel === "high") {
+    return "risk-high";
+  }
+  if (impactLevel === "medium") {
+    return "risk-medium";
+  }
+  return "risk-low";
 }
 
 function OutputBlock({ title, text }: DetailOutput) {
   const [copied, setCopied] = useState(false);
 
   async function copyToClipboard(): Promise<void> {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
   }
 
   return (
@@ -169,10 +199,14 @@ export function App() {
   });
 
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatDraft, setChatDraft] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
-  const [trace, setTrace] = useState<TraceEntry[]>([]);
+  const [activePlan, setActivePlan] = useState<ActivePlanState | null>(null);
+  const [planStatus, setPlanStatus] = useState<"none" | "preview" | "running" | "completed">("none");
+  const [approvalToken, setApprovalToken] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const [executionLog, setExecutionLog] = useState<ExecutionLogEntry[]>([]);
+  const [executionSummary, setExecutionSummary] = useState<string>("");
+  const [executionView, setExecutionView] = useState<ExecutionView>("progress");
 
   useEffect(() => {
     void refreshStatus();
@@ -188,6 +222,17 @@ export function App() {
     }
     return `${counts.moduleCount} modules, ${counts.entityCount} entities, ${counts.microflowCount} microflows`;
   }, [status]);
+
+  const expectedConfirmText = activePlan ? confirmationTarget(activePlan.changePlan) : "";
+  const needsDestructiveConfirm = Boolean(activePlan?.preview.destructive);
+  const destructiveConfirmMatches = !needsDestructiveConfirm || confirmText.trim() === expectedConfirmText;
+  const canApprove =
+    Boolean(activePlan) &&
+    status.connected &&
+    planStatus === "preview" &&
+    !chatBusy &&
+    approvalToken.trim().length > 0 &&
+    destructiveConfirmMatches;
 
   async function runWithLoading(label: string, fn: () => Promise<void>): Promise<void> {
     setLoadingLabel(label);
@@ -231,6 +276,7 @@ export function App() {
         title: "Detail view",
         text: "Verbinding gesloten.",
       });
+      resetPlanFlow();
     });
   }
 
@@ -391,101 +437,251 @@ export function App() {
     });
   }
 
+  function confirmationTarget(plan: ChangePlan): string {
+    return plan.target.microflow || plan.target.entity || plan.target.module || plan.planId;
+  }
+
+  function pushExecutionLog(
+    eventName: ExecutionLogEntry["event"],
+    message: string,
+    commandText?: string
+  ): void {
+    setExecutionLog((previous) =>
+      [
+        ...previous,
+        {
+          timestamp: new Date().toISOString(),
+          event: eventName,
+          message,
+          commandText,
+        },
+      ].slice(-400)
+    );
+  }
+
+  function appendExecutionSummary(line: string): void {
+    setExecutionSummary((previous) => (previous ? `${previous}\n${line}` : line));
+  }
+
+  function resetPlanFlow(): void {
+    setActivePlan(null);
+    setPlanStatus("none");
+    setConfirmText("");
+    setExecutionLog([]);
+    setExecutionSummary("");
+  }
+
   async function handleChatSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const message = chatInput.trim();
     if (!message || chatBusy) {
       return;
     }
+    if (!status.connected) {
+      setErrorMessage("Verbind eerst met een Mendix app.");
+      return;
+    }
+    if (planStatus !== "none") {
+      setErrorMessage("Er is al een actief plan. Gebruik Reject, Edit Prompt of Nieuw plan.");
+      return;
+    }
 
-    setChatInput("");
     setChatBusy(true);
-    setChatDraft("");
     setErrorMessage(null);
-    setChatMessages((previous) => [...previous, { role: "user", text: message }]);
-
-    let finalAnswer = "";
-    const pushTrace = (eventName: TraceEntry["event"], messageText: string, timestamp?: string): void => {
-      setTrace((previous) =>
-        [
-          ...previous,
-          {
-            timestamp: timestamp ?? new Date().toLocaleTimeString(),
-            event: eventName,
-            message: messageText,
-          },
-        ].slice(-200)
-      );
-    };
+    setExecutionLog([]);
+    setExecutionSummary("");
+    setExecutionView("progress");
 
     try {
-      await streamChat(
+      const planned = await createPlan(message, {
+        module: selectedModule ?? undefined,
+      });
+
+      setActivePlan({
+        prompt: message,
+        changePlan: planned.changePlan,
+        preview: planned.preview,
+        validationWarnings: [],
+        validationErrors: [],
+      });
+      setPlanStatus("preview");
+      pushExecutionLog("command_start", `Plan generated: ${planned.changePlan.planId}`);
+      setChatInput("");
+      setConfirmText("");
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      setErrorMessage(messageText);
+      pushExecutionLog("error", messageText);
+    } finally {
+      setChatBusy(false);
+    }
+  }
+
+  async function handleApprovePlan(): Promise<void> {
+    if (!activePlan || planStatus !== "preview") {
+      return;
+    }
+    if (!approvalToken.trim()) {
+      setErrorMessage("Approval token is verplicht.");
+      return;
+    }
+
+    if (needsDestructiveConfirm && !destructiveConfirmMatches) {
+      setErrorMessage(`Type exact '${expectedConfirmText}' om destructive wijzigingen te bevestigen.`);
+      return;
+    }
+
+    setChatBusy(true);
+    setErrorMessage(null);
+    setExecutionView("progress");
+
+    try {
+      const validation = await validatePlan(activePlan.changePlan.planId);
+      setActivePlan((previous) =>
+        previous
+          ? {
+              ...previous,
+              validationWarnings: validation.warnings,
+              validationErrors: validation.errors,
+              preview: validation.preview,
+            }
+          : previous
+      );
+
+      if (validation.errors.length > 0) {
+        setErrorMessage("Plan validatie faalde. Corrigeer de prompt en genereer opnieuw.");
+        pushExecutionLog("error", `Validation errors: ${validation.errors.join(" | ")}`);
+        return;
+      }
+
+      if (validation.warnings.length > 0) {
+        pushExecutionLog("postcheck_results", `Validation warnings: ${validation.warnings.join(" | ")}`);
+      }
+
+      setPlanStatus("running");
+      appendExecutionSummary("Execution gestart.");
+
+      let finalReceived = false;
+
+      await streamPlanExecute(
         {
-          message,
-          mode: "assistant",
-          context: {
-            module: selectedModule ?? undefined,
-            qualifiedName: selectedQualifiedName ?? undefined,
-          },
+          planId: activePlan.changePlan.planId,
+          approvalToken: approvalToken.trim(),
+          confirmText: needsDestructiveConfirm ? confirmText.trim() : undefined,
         },
         (streamEvent) => {
-          const now = new Date().toLocaleTimeString();
+          const record = asRecord(streamEvent.data);
 
-          if (streamEvent.event === "assistant_token") {
-            if (typeof streamEvent.data === "string") {
-              setChatDraft((previous) => previous + streamEvent.data);
-            }
+          if (streamEvent.event === "command_start") {
+            const payload = record as CommandEventPayload | null;
+            const commandType = payload?.command?.type;
+            const commandLabel = typeof commandType === "string" ? commandType : "unknown";
+            const idx = typeof payload?.commandIndex === "number" ? payload.commandIndex + 1 : "?";
+            const total = typeof payload?.totalCommands === "number" ? payload.totalCommands : "?";
+            pushExecutionLog(
+              "command_start",
+              `Start command ${idx}/${total}: ${commandLabel}`,
+              renderCommand(payload?.command)
+            );
             return;
           }
 
-          if (streamEvent.event === "tool_call") {
-            const record = asRecord(streamEvent.data);
-            const payload: ToolCallPayload = {
-              toolName: typeof record?.toolName === "string" ? record.toolName : undefined,
-              input: asRecord(record?.input) ?? undefined,
-            };
-            pushTrace("tool_call", renderTraceCall(payload), now);
+          if (streamEvent.event === "command_success") {
+            const payload = record as CommandEventPayload | null;
+            const commandType = payload?.command?.type;
+            const commandLabel = typeof commandType === "string" ? commandType : "unknown";
+            const notes = payload?.notes?.join(" | ") ?? "completed";
+            pushExecutionLog(
+              "command_success",
+              `${commandLabel}: ${notes}`,
+              renderCommand(payload?.command)
+            );
             return;
           }
 
-          if (streamEvent.event === "tool_result") {
-            const record = asRecord(streamEvent.data);
-            const payload: ToolResultPayload = {
-              toolName: typeof record?.toolName === "string" ? record.toolName : undefined,
-              summary: typeof record?.summary === "string" ? record.summary : undefined,
-              textLength: typeof record?.textLength === "number" ? record.textLength : undefined,
-            };
-            pushTrace("tool_result", renderTraceResult(payload), now);
+          if (streamEvent.event === "command_failed") {
+            const payload = record as CommandEventPayload | null;
+            const commandType = payload?.command?.type;
+            const commandLabel = typeof commandType === "string" ? commandType : "unknown";
+            const messageText = payload?.error ?? "failed";
+            pushExecutionLog(
+              "command_failed",
+              `${commandLabel}: ${messageText}`,
+              renderCommand(payload?.command)
+            );
+            setErrorMessage(messageText);
+            setPlanStatus("preview");
+            return;
+          }
+
+          if (streamEvent.event === "commit_done") {
+            const payload = record as CommitDonePayload | null;
+            const commitMessage = payload?.commitMessage ?? "Commit afgerond.";
+            pushExecutionLog("commit_done", commitMessage);
+            appendExecutionSummary(`Commit: ${commitMessage}`);
+            return;
+          }
+
+          if (streamEvent.event === "postcheck_results") {
+            const payload = record as PostcheckPayload | null;
+            const postChecks =
+              payload?.postCheck?.map(
+                (item) => `${item.module ?? "unknown"}: ${item.findingCount ?? 0} findings`
+              ) ?? [];
+            const summaryText =
+              postChecks.length > 0 ? postChecks.join(" | ") : "Geen post-check resultaten.";
+            pushExecutionLog(
+              "postcheck_results",
+              summaryText
+            );
+            appendExecutionSummary(`Post-check: ${summaryText}`);
             return;
           }
 
           if (streamEvent.event === "final") {
-            const record = asRecord(streamEvent.data) as FinalPayload | null;
-            if (record?.answer) {
-              finalAnswer = record.answer;
-            }
+            finalReceived = true;
+            setPlanStatus("completed");
+            pushExecutionLog("commit_done", "Execution voltooid.");
             return;
           }
 
           if (streamEvent.event === "error") {
-            const record = asRecord(streamEvent.data) as ErrorPayload | null;
-            const messageText = record?.message ?? "Onbekende chatfout.";
-            pushTrace("error", messageText, now);
+            const payload = record as ErrorPayload | null;
+            const messageText = payload?.message ?? "Onbekende execution-fout.";
             setErrorMessage(messageText);
+            pushExecutionLog("error", messageText);
+            setPlanStatus("preview");
           }
         }
       );
+
+      if (!finalReceived) {
+        setPlanStatus((previous) => (previous === "running" ? "completed" : previous));
+      }
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
       setErrorMessage(messageText);
-      pushTrace("error", messageText);
+      pushExecutionLog("error", messageText);
+      setPlanStatus("preview");
     } finally {
       setChatBusy(false);
-      setChatDraft("");
     }
+  }
 
-    const assistantText = finalAnswer || "Geen antwoord ontvangen.";
-    setChatMessages((previous) => [...previous, { role: "assistant", text: assistantText }]);
+  function handleRejectPlan(): void {
+    pushExecutionLog("error", "Plan rejected door gebruiker.");
+    resetPlanFlow();
+  }
+
+  function handleEditPrompt(): void {
+    if (activePlan) {
+      setChatInput(activePlan.prompt);
+    }
+    resetPlanFlow();
+  }
+
+  function handleStartNewPlan(): void {
+    resetPlanFlow();
   }
 
   return (
@@ -684,51 +880,198 @@ export function App() {
 
           {activeTab === "chat" ? (
             <div className="chat-layout">
-              <section className="chat-panel">
-                <div className="chat-messages">
-                  {chatMessages.map((message, index) => (
-                    <article key={`${message.role}-${index}`} className={`chat-message ${message.role}`}>
-                      <h4>{message.role === "user" ? "You" : "Copilot"}</h4>
-                      <pre>{message.text}</pre>
-                    </article>
-                  ))}
-                  {chatBusy && chatDraft ? (
-                    <article className="chat-message assistant">
-                      <h4>Copilot</h4>
-                      <pre>{chatDraft}</pre>
-                    </article>
-                  ) : null}
-                </div>
-
+              <section className="chat-panel plan-panel">
                 <form className="chat-input" onSubmit={(event) => void handleChatSubmit(event)}>
                   <input
                     type="text"
                     value={chatInput}
                     onChange={(event) => setChatInput(event.target.value)}
-                    placeholder="Stel een vraag over je Mendix model..."
-                    disabled={chatBusy}
+                    placeholder="Beschrijf de wijziging die je wilt plannen..."
+                    disabled={chatBusy || planStatus === "running"}
                   />
-                  <button type="submit" disabled={chatBusy || !status.connected}>
-                    {chatBusy ? "Running..." : "Send"}
+                  <button
+                    type="submit"
+                    disabled={chatBusy || !status.connected || !chatInput.trim() || planStatus !== "none"}
+                  >
+                    {chatBusy ? "Running..." : "Generate plan"}
                   </button>
                 </form>
+
+                <p className="mode-banner">Mode: Plan only. Geen auto-execute.</p>
+
+                {activePlan ? (
+                  <section className="plan-preview-card">
+                    <header className="plan-preview-header">
+                      <div>
+                        <h3>Plan preview</h3>
+                        <p>{activePlan.changePlan.planId}</p>
+                      </div>
+                      <div className="plan-badges">
+                        <span className={`risk-badge ${riskClass(activePlan.changePlan.risk.impactLevel)}`}>
+                          Risk: {activePlan.changePlan.risk.impactLevel}
+                        </span>
+                        {activePlan.preview.destructive ? (
+                          <span className="destructive-badge">Destructive</span>
+                        ) : null}
+                        <span className={`plan-status-badge ${planStatus}`}>Status: {planStatus}</span>
+                      </div>
+                    </header>
+
+                    <div className="plan-preview-grid">
+                      <section>
+                        <h4>Prompt</h4>
+                        <pre>{activePlan.prompt}</pre>
+                      </section>
+                      <section>
+                        <h4>Summary</h4>
+                        <ul className="plain-list">
+                          {activePlan.preview.summary.map((line, index) => (
+                            <li key={`${line}-${index}`}>{line}</li>
+                          ))}
+                        </ul>
+                      </section>
+                      <section>
+                        <h4>Affected artifacts</h4>
+                        <ul className="plain-list">
+                          {activePlan.preview.affectedArtifacts.map((artifact) => (
+                            <li key={artifact}>
+                              <code>{artifact}</code>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                      <section>
+                        <h4>Risk notes</h4>
+                        <ul className="plain-list">
+                          {activePlan.changePlan.risk.notes.map((note, index) => (
+                            <li key={`${note}-${index}`}>{note}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    </div>
+
+                    {activePlan.validationWarnings.length > 0 ? (
+                      <div className="validation-box warnings">
+                        <h4>Validation warnings</h4>
+                        <ul className="plain-list">
+                          {activePlan.validationWarnings.map((warning, index) => (
+                            <li key={`${warning}-${index}`}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {activePlan.validationErrors.length > 0 ? (
+                      <div className="validation-box errors">
+                        <h4>Validation errors</h4>
+                        <ul className="plain-list">
+                          {activePlan.validationErrors.map((validationError, index) => (
+                            <li key={`${validationError}-${index}`}>{validationError}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    <div className="approval-form">
+                      <label>
+                        Approval token
+                        <input
+                          type="password"
+                          value={approvalToken}
+                          onChange={(event) => setApprovalToken(event.target.value)}
+                          placeholder="Verplicht voor execute"
+                          disabled={chatBusy || planStatus === "running"}
+                        />
+                      </label>
+
+                      {needsDestructiveConfirm ? (
+                        <label>
+                          Type exact '{expectedConfirmText}' to confirm destructive change
+                          <input
+                            type="text"
+                            value={confirmText}
+                            onChange={(event) => setConfirmText(event.target.value)}
+                            placeholder={expectedConfirmText}
+                            disabled={chatBusy || planStatus === "running"}
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+
+                    <div className="plan-actions">
+                      <button type="button" onClick={() => void handleApprovePlan()} disabled={!canApprove}>
+                        Approve
+                      </button>
+                      <button type="button" onClick={handleRejectPlan} disabled={chatBusy || planStatus === "running"}>
+                        Reject
+                      </button>
+                      <button type="button" onClick={handleEditPrompt} disabled={chatBusy || planStatus === "running"}>
+                        Edit Prompt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleStartNewPlan}
+                        disabled={chatBusy || planStatus === "running"}
+                      >
+                        Nieuw plan
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <p className="empty-plan">
+                    Start met een NL prompt in de chat input. De UI genereert alleen een plan totdat je expliciet op
+                    Approve klikt.
+                  </p>
+                )}
+
+                {executionSummary ? (
+                  <section className="execution-summary">
+                    <header>
+                      <h3>Execution summary</h3>
+                      <button type="button" onClick={() => void navigator.clipboard.writeText(executionSummary)}>
+                        Copy
+                      </button>
+                    </header>
+                    <pre>{executionSummary}</pre>
+                  </section>
+                ) : null}
               </section>
 
-              <aside className="trace-panel">
-                <header>
-                  <h3>Tool trace</h3>
-                  <button type="button" onClick={() => setTrace([])}>
+              <aside className="trace-panel execution-panel">
+                <header className="execution-header">
+                  <h3>Execution</h3>
+                  <button type="button" onClick={() => setExecutionLog([])}>
                     Clear
                   </button>
                 </header>
+                <nav className="execution-tabs">
+                  <button
+                    type="button"
+                    className={executionView === "progress" ? "active" : ""}
+                    onClick={() => setExecutionView("progress")}
+                  >
+                    Progress
+                  </button>
+                  <button
+                    type="button"
+                    className={executionView === "log" ? "active" : ""}
+                    onClick={() => setExecutionView("log")}
+                  >
+                    Execution Log
+                  </button>
+                </nav>
                 <ul>
-                  {trace.map((entry, index) => (
+                  {executionLog.map((entry, index) => (
                     <li key={`${entry.timestamp}-${index}`} className={entry.event}>
                       <span>{entry.timestamp}</span>
                       <strong>{entry.event}</strong>
                       <p>{entry.message}</p>
+                      {executionView === "log" && entry.commandText ? (
+                        <pre className="execution-command">{entry.commandText}</pre>
+                      ) : null}
                     </li>
                   ))}
+                  {executionLog.length === 0 ? <li className="empty-log">Nog geen events.</li> : null}
                 </ul>
               </aside>
             </div>

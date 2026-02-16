@@ -53,4 +53,14 @@ export interface ApiFinalEvent {
   answer: string;
 }
 
-export type SseEventName = "assistant_token" | "tool_call" | "tool_result" | "final" | "error";
+export type SseEventName =
+  | "assistant_token"
+  | "tool_call"
+  | "tool_result"
+  | "command_start"
+  | "command_success"
+  | "command_failed"
+  | "commit_done"
+  | "postcheck_results"
+  | "final"
+  | "error";

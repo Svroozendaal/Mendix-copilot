@@ -111,3 +111,21 @@
 **Alternatieven**: Next.js (meer framework-overhead voor deze fase), custom vanilla UI (minder schaalbaar voor Copilot UX).
 
 ---
+
+### 2026-02-16 - ChangePlan-first architectuur met gescheiden planner/executor
+
+**Context**: We willen veilige modelwijzigingen: eerst plannen, valideren en previewen voor uitvoering.
+**Beslissing**: Nieuwe lagen `src/change-planner` en `src/change-executor` met een strikt DSL-contract ertussen.
+**Rationale**: Beter testbaar, traceerbaar en geschikt voor approval workflows.
+**Alternatieven**: Direct NL -> SDK writes (te risicovol en slecht auditeerbaar).
+
+---
+
+### 2026-02-16 - Execution engine voorlopig in simulated mode
+
+**Context**: De bestaande MendixClient laag exposeert nu read-only operaties in deze codebase.
+**Beslissing**: Executor dispatcht deterministisch naar builders en levert execution metadata zonder directe SDK write/commit.
+**Rationale**: Veilig MVP-pad met valideerbare pipeline en voorbereiding op echte write builders.
+**Alternatieven**: Onvolledige directe writes via ad-hoc SDK reflectie (te fragiel en moeilijk te testen).
+
+---

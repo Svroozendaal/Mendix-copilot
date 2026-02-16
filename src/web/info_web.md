@@ -13,3 +13,4 @@ Web-laag voor lokale Copilot UI integratie.
 ## Ontwerp
 - Houdt UI-hosting en API-logica gescheiden van de MCP stdio server.
 - Maakt hergebruik richting Studio Pro integratie eenvoudiger via stabiele API-contracten.
+- API bevat inspectie-, chat- en change-plan workflows.

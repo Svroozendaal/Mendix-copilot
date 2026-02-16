@@ -85,3 +85,28 @@ export const chatBodySchema = z
       .optional(),
   })
   .strict();
+
+export const planBodySchema = z
+  .object({
+    message: z.string().trim().min(1, "message is verplicht"),
+    context: z
+      .object({
+        module: z.string().trim().min(1).optional(),
+      })
+      .optional(),
+  })
+  .strict();
+
+export const planValidateBodySchema = z
+  .object({
+    planId: z.string().uuid("planId moet een geldige UUID zijn"),
+  })
+  .strict();
+
+export const planExecuteBodySchema = z
+  .object({
+    planId: z.string().uuid("planId moet een geldige UUID zijn"),
+    approvalToken: z.string().trim().min(1, "approvalToken is verplicht"),
+    confirmText: z.string().trim().min(1).optional(),
+  })
+  .strict();
