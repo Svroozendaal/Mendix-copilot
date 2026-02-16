@@ -38,6 +38,46 @@ function makeModule(name: string, fromAppStore: boolean) {
   return { name, fromAppStore };
 }
 
+function makeRemovedTypeParameter(name: string, variableTypeName: string) {
+  const parameter: Record<string, unknown> = {
+    name,
+    variableType: { name: variableTypeName },
+  };
+
+  Object.defineProperty(parameter, "type", {
+    get: () => {
+      throw new Error(
+        "Property 'type' of type 'Microflows$MicroflowParameterObject' can no longer be instantiated."
+      );
+    },
+    enumerable: true,
+  });
+
+  return parameter;
+}
+
+function makeMicroflowWithRemovedReturnType() {
+  const microflow: Record<string, unknown> = {
+    name: "ACT_Order_Validate",
+    qualifiedName: "Sales.ACT_Order_Validate",
+    moduleName: "Sales",
+    parameters: [],
+    microflowReturnType: { name: "Boolean" },
+    objectCollection: { objects: [] },
+  };
+
+  Object.defineProperty(microflow, "returnType", {
+    get: () => {
+      throw new Error(
+        "Property 'returnType' of type 'Microflows$Microflow' can no longer be instantiated."
+      );
+    },
+    enumerable: true,
+  });
+
+  return microflow;
+}
+
 describe("MendixClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -113,5 +153,42 @@ describe("MendixClient", () => {
     await client.getAppInfo();
 
     expect(mockCreateTemporaryWorkingCopy).toHaveBeenCalledWith("develop");
+  });
+
+  it("uses variableType for microflow parameters when deprecated type property throws", async () => {
+    const parameter = makeRemovedTypeParameter("inputOrder", "Order");
+    const microflow = {
+      name: "ACT_Order_Create",
+      qualifiedName: "Sales.ACT_Order_Create",
+      moduleName: "Sales",
+      parameters: [parameter],
+      returnType: "Void",
+      objectCollection: { objects: [] },
+    };
+
+    const mockModel = {
+      allMicroflows: vi.fn().mockReturnValue([microflow]),
+    };
+    mockOpenModel.mockResolvedValue(mockModel);
+
+    const client = new MendixClient(testConfig);
+    const microflows = await client.listMicroflows("Sales");
+
+    expect(microflows).toHaveLength(1);
+    expect(microflows[0]?.parameters).toEqual([{ name: "inputOrder", type: "Order" }]);
+  });
+
+  it("uses microflowReturnType when deprecated returnType property throws", async () => {
+    const microflow = makeMicroflowWithRemovedReturnType();
+    const mockModel = {
+      allMicroflows: vi.fn().mockReturnValue([microflow]),
+    };
+    mockOpenModel.mockResolvedValue(mockModel);
+
+    const client = new MendixClient(testConfig);
+    const microflows = await client.listMicroflows("Sales");
+
+    expect(microflows).toHaveLength(1);
+    expect(microflows[0]?.returnType).toBe("Boolean");
   });
 });

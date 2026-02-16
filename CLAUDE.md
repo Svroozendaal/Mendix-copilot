@@ -174,8 +174,8 @@ Wanneer je als Claude Code aan dit project werkt:
 ## Huidige Status
 
 <!-- Dit wordt automatisch bijgewerkt door /status -->
-**Fase**: Fase 1 in uitvoering - fundament + navigation tools + domain model tools geimplementeerd
-**Volgende stap**: Fase 1 - Prompt 4 (microflow en logic tools) implementeren
+**Fase**: MVP compleet (Prompt 1 t/m 8 geimplementeerd)
+**Volgende stap**: Stabilisatie, handmatige validatie op echte apps, en distributie (optionele Prompt 9)
 **Blokkeerders**: Geen
 
 ## Permissions

@@ -3,13 +3,20 @@
 > Laatst bijgewerkt: 2026-02-16
 
 ## Doel
-MCP Resources. Dit zijn read-only data bronnen die Claude kan opvragen als context. Anders dan tools (die actief worden aangeroepen), worden resources passief beschikbaar gesteld.
+MCP resources: read-only contextbronnen die de client kan ophalen.
 
 ## Bestanden
 | Bestand | Doel | URI | Status |
 |---------|------|-----|--------|
-| app-overview.ts | Samenvatting van de hele app | `mendix://app/overview` | 📋 Gepland |
+| app-overview.ts | Appbrede samenvatting (modules, security, highlights) | `mendix://app/overview` | Geimplementeerd |
 
-## Toekomstig
-- `mendix://module/{name}` — Samenvatting per module
-- `mendix://module/{name}/domain-model` — Domain model als resource
+## Resource details
+`mendix://app/overview` bevat:
+- App naam, App ID en Mendix versie
+- Modulegroottes (entities/microflows/pages)
+- Security status (aan/uit + aantal user roles)
+- Highlights (grootste module, meeste microflows)
+
+## Bekende beperkingen
+- Resource-opbouw kan relatief duur zijn op grote apps omdat meerdere modelqueries worden uitgevoerd.
+- Highlight logica is simpel (max op entities/microflows).

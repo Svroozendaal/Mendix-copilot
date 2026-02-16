@@ -1,49 +1,68 @@
-# Architectuur — Mendix Copilot
+# Architectuur - Mendix Copilot
 
 > Laatst bijgewerkt: 2026-02-16
 
 ## Systeemoverzicht
 
+Er zijn nu twee hosts op dezelfde core:
+
+1. MCP flow
+
 ```
-Claude Code/Desktop ←→ MCP Protocol ←→ Mendix Copilot Server ←→ Mendix Platform SDK ←→ Team Server
+Claude/Codex <-> MCP Protocol <-> MCP Server (src/index.ts) <-> Mendix SDK
+```
+
+2. Localhost web flow
+
+```
+React Web UI <-> copilot-api (src/web/api) <-> Core Service (src/core) <-> Mendix SDK
 ```
 
 ## Lagen
 
-### 1. MCP Server (src/index.ts)
-Entry point. Registreert alle tools, resources en prompts. Beheert de MCP server lifecycle.
+### 1. MCP Server (`src/index.ts`)
+Entry point voor MCP tooling. Registreert tools, resources en prompts en draait op stdio transport.
 
-### 2. Tools (src/tools/)
-Elke file registreert een groep gerelateerde MCP tools. Tools zijn de "knoppen" die Claude kan indrukken.
+### 2. Core Service (`src/core/`)
+Gedeelde applicatielaag bovenop `MendixClient` + serializers.
+Levert consistente `text + meta` resultaten voor API-hosts.
 
-### 3. Mendix Client (src/mendix/client.ts)
-Wrapper rond de Mendix Platform SDK + Model SDK. Beheert working copies, caching en lazy loading.
+### 3. API Server (`src/web/api/`)
+Lokale HTTP/SSE laag voor de web UI:
+- connect/disconnect/status lifecycle
+- inspectie-endpoints
+- chat-runner met tool trace events
 
-### 4. Cache (src/mendix/cache.ts)
-In-memory cache voor model data. Voorkomt herhaalde SDK calls voor dezelfde data.
+### 4. Tools (`src/tools/`)
+MCP tool-registratie voor de MCP host.
 
-### 5. Serializers (src/mendix/serializers/)
-Vertalen raw SDK model objecten naar beknopte, leesbare tekst voor Claude. Dit is de KRITIEKE laag — als de output te lang of te technisch is, werkt Claude niet goed.
+### 5. Mendix Client (`src/mendix/client.ts`)
+Wrapper rond Mendix Platform SDK + Model SDK. Verzorgt working copy lifecycle en modelextractie.
 
-### 6. Config (src/config/)
-Configuratie management: PAT token, app ID, branch, timeouts.
+### 6. Cache (`src/mendix/cache.ts`)
+In-memory cache voor tool workflows.
 
-## Data Flow
+### 7. Serializers (`src/mendix/serializers/`)
+Vertalen modeldata naar Claude/Codex-vriendelijke tekstoutput.
+
+### 8. Config (`src/config/`)
+Configuratie van token/app/branch.
+
+## Dataflow (web UI)
 
 ```
-Claude vraagt: "Toon entities in module Orders"
-  → MCP Server ontvangt tool call: get_domain_model({ module: "Orders" })
-    → Tool delegeert naar MendixClient.getDomainModel("Orders")
-      → Client checkt cache → miss → SDK call
-        → SDK opent working copy (of hergebruikt gecachete)
-          → SDK laadt domain model
-      → Client cached resultaat
-    → Tool roept serializer aan: serializeDomainModel(domainModel)
-      → Serializer maakt leesbare tekst
-    → Tool retourneert: { content: [{ type: "text", text: "..." }] }
-  → Claude leest de output en beantwoordt de vraag
+UI actie -> /api/* endpoint -> CopilotCore -> MendixClient -> SDK
+                               -> serializer text + meta -> UI rendering
+```
+
+## Dataflow (chat)
+
+```
+POST /api/chat -> ChatRunner intent -> tool workflow
+               -> SSE events: tool_call/tool_result/final
+               -> UI toont trace + eindantwoord
 ```
 
 ## Beslissingen
 
-Zie `docs/DECISIONS.md` voor alle architectuurbeslissingen.
+Zie `docs/DECISIONS.md`.

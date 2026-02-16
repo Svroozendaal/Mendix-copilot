@@ -1,0 +1,415 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg: #f2f6f5;
+  --surface: #ffffff;
+  --surface-muted: #e8efec;
+  --text: #152326;
+  --text-muted: #4b6368;
+  --brand: #0f6d6f;
+  --brand-soft: #d3ece7;
+  --danger: #b33143;
+  --border: #c6d8d3;
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at 0% 0%, #dff4ee, var(--bg) 45%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.topbar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.topbar p {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+}
+
+.connect-panel {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  align-items: end;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.connect-fields {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  gap: 0.75rem;
+}
+
+.connect-fields label,
+.action-controls label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  color: var(--text);
+}
+
+button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  background: var(--surface-muted);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--brand);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.connect-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.status-badge {
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.status-badge.connected {
+  background: var(--brand-soft);
+  border-color: #99c8be;
+}
+
+.status-badge.disconnected {
+  background: #f7e6e9;
+  border-color: #e4bfc6;
+}
+
+.banner {
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.7rem 0;
+}
+
+.banner.loading {
+  background: #e8f0fb;
+  border: 1px solid #bfd3f0;
+}
+
+.banner.error {
+  background: #f8e8eb;
+  border: 1px solid #e7bec7;
+  color: var(--danger);
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1rem;
+}
+
+.sidebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  overflow: auto;
+  max-height: calc(100vh - 230px);
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.sidebar h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.sidebar section {
+  margin-top: 0.85rem;
+}
+
+.sidebar h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sidebar li button {
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+}
+
+.sidebar li button.selected {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.main-pane {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  min-height: 620px;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.tabs button.active {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+
+.output-block {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fcfffe;
+  overflow: hidden;
+}
+
+.output-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.output-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+pre {
+  margin: 0;
+  padding: 0.8rem;
+  overflow: auto;
+  max-height: 68vh;
+  white-space: pre-wrap;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.actions-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0.85rem;
+}
+
+.action-controls {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+}
+
+.action-controls h3 {
+  margin: 0;
+}
+
+.chat-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 0.8rem;
+}
+
+.chat-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fcfffe;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 540px;
+}
+
+.chat-messages {
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+  overflow: auto;
+}
+
+.chat-message {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.chat-message h4 {
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.chat-message.user h4 {
+  background: #e5f1ee;
+}
+
+.chat-message.assistant h4 {
+  background: #e7eff8;
+}
+
+.chat-input {
+  padding: 0.6rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.trace-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  background: #fbfcff;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 540px;
+}
+
+.trace-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.trace-panel h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.trace-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  display: grid;
+  gap: 0.42rem;
+  align-content: start;
+}
+
+.trace-panel li {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.45rem;
+}
+
+.trace-panel li span {
+  display: inline-block;
+  margin-right: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.trace-panel li strong {
+  text-transform: uppercase;
+  font-size: 0.74rem;
+}
+
+.trace-panel li p {
+  margin: 0.2rem 0 0;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.trace-panel li.error {
+  border-color: #dca1ad;
+  background: #fff3f5;
+}
+
+@media (max-width: 1180px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    max-height: none;
+  }
+
+  .connect-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .connect-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .actions-layout,
+  .chat-layout {
+    grid-template-columns: 1fr;
+  }
+}

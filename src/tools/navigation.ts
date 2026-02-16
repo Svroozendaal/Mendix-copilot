@@ -1,6 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { MendixClient } from "../mendix/client.js";
+import {
+  serializeAppInfo,
+  serializeModuleList,
+  serializeSearchResults,
+} from "../mendix/serializers/navigation.js";
 
 export function registerNavigationTools(
   server: McpServer,
@@ -13,20 +18,8 @@ export function registerNavigationTools(
     async () => {
       try {
         const appInfo = await mendixClient.getAppInfo();
-
-        const lines: string[] = [
-          `App: ${appInfo.name}`,
-          `App ID: ${appInfo.appId}`,
-          `Branch: ${appInfo.branch}`,
-          `Mendix Version: ${appInfo.mendixVersion}`,
-          `Modules: ${appInfo.moduleCount}`,
-          ``,
-          "Module Names:",
-          ...appInfo.modules.map((moduleInfo) => `- ${moduleInfo.name}`),
-        ];
-
         return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
+          content: [{ type: "text" as const, text: serializeAppInfo(appInfo) }],
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -47,25 +40,48 @@ export function registerNavigationTools(
     async (params) => {
       try {
         const modules = await mendixClient.listModules(params.filter);
-        const header = params.filter
-          ? `Modules matching '${params.filter}' (${modules.length}):`
-          : `Modules (${modules.length}):`;
-
-        const lines: string[] = [header];
-        for (const moduleInfo of modules) {
-          lines.push(
-            `- ${moduleInfo.name} (${moduleInfo.fromMarketplace ? "marketplace" : "user"})`
-          );
-        }
-
         return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
+          content: [{ type: "text" as const, text: serializeModuleList(modules, params.filter) }],
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
           content: [
             { type: "text" as const, text: `Error listing modules: ${message}` },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "search_model",
+    "Search model documents by name across entities, microflows, pages, and enumerations.",
+    {
+      query: z.string().min(1),
+      scope: z
+        .enum(["all", "entities", "microflows", "pages", "enumerations"])
+        .optional(),
+    },
+    async (params) => {
+      try {
+        const results = await mendixClient.searchModel(
+          params.query,
+          params.scope ?? "all"
+        );
+
+        return {
+          content: [{ type: "text" as const, text: serializeSearchResults(params.query, results) }],
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error searching model for '${params.query}': ${message}`,
+            },
           ],
           isError: true,
         };

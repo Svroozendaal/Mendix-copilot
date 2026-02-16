@@ -41,6 +41,7 @@ describe("registerNavigationTools", () => {
     const mendixClient = {
       getAppInfo: vi.fn(),
       listModules: vi.fn(),
+      searchModel: vi.fn(),
     } as never;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,6 +49,7 @@ describe("registerNavigationTools", () => {
 
     expect(server.hasTool("get_app_info")).toBe(true);
     expect(server.hasTool("list_modules")).toBe(true);
+    expect(server.hasTool("search_model")).toBe(true);
   });
 
   it("get_app_info returns app name, version, module count and module names", async () => {
@@ -64,6 +66,7 @@ describe("registerNavigationTools", () => {
         ],
       }),
       listModules: vi.fn(),
+      searchModel: vi.fn(),
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,6 +88,7 @@ describe("registerNavigationTools", () => {
         { name: "Administration", fromMarketplace: false },
         { name: "CommunityCommons", fromMarketplace: true },
       ]),
+      searchModel: vi.fn(),
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,6 +106,7 @@ describe("registerNavigationTools", () => {
     const mendixClient = {
       getAppInfo: vi.fn().mockRejectedValue(new Error("Connection failed")),
       listModules: vi.fn(),
+      searchModel: vi.fn(),
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,5 +130,30 @@ describe("registerNavigationTools", () => {
     expect(text).toContain("- Entities: 2");
     expect(text).toContain("- Microflows: 1");
     expect(text).toContain("- Pages: 3");
+  });
+
+  it("search_model returns scoped results", async () => {
+    const mendixClient = {
+      getAppInfo: vi.fn(),
+      listModules: vi.fn(),
+      searchModel: vi.fn().mockResolvedValue([
+        {
+          type: "microflow",
+          moduleName: "Sales",
+          name: "ACT_Order_Create",
+          qualifiedName: "Sales.ACT_Order_Create",
+          relevance: 3,
+        },
+      ]),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    registerNavigationTools(server as any, mendixClient as never);
+    const handler = server.getHandler("search_model");
+    const result = await handler!({ query: "order", scope: "microflows" });
+
+    expect(mendixClient.searchModel).toHaveBeenCalledWith("order", "microflows");
+    expect(result.content[0].text).toContain("Zoekresultaten voor 'order' (1):");
+    expect(result.content[0].text).toContain("[microflow] Sales.ACT_Order_Create");
   });
 });

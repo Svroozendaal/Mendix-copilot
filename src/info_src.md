@@ -3,28 +3,30 @@
 > Laatst bijgewerkt: 2026-02-16
 
 ## Doel
-Root source folder. Bevat alle TypeScript broncode voor de Mendix Copilot MCP Server.
+Root source folder. Bevat alle TypeScript broncode voor Mendix Copilot hosts (MCP en localhost API).
 
 ## Bestanden
 | Bestand | Doel | Status |
 |---------|------|--------|
-| index.ts | Entry point voor MCP server setup en toolregistratie | Geimplementeerd |
+| index.ts | MCP entry point: config, startup banner, tool/resource/prompt registratie, transport, shutdown | Geimplementeerd |
 
 ## Subfolders
 | Folder | Doel |
 |--------|------|
-| config/ | Configuratie management (env vars, defaults) |
-| mendix/ | Mendix SDK client, cache, en serializers |
-| tools/ | MCP tool definities (wat Claude kan aanroepen) |
-| resources/ | MCP resource definities (context die Claude kan lezen) |
-| prompts/ | MCP prompt templates (voorgedefinieerde workflows) |
+| config/ | Configuratie management (env vars, defaults, CLI fallback) |
+| core/ | Gedeelde core service (`text + meta`) bovenop MendixClient + serializers |
+| mendix/ | Mendix SDK facade, cache, serializers |
+| tools/ | MCP tool definities |
+| resources/ | MCP resources |
+| prompts/ | MCP prompt templates |
+| web/ | Lokale web API laag voor de localhost UI |
 
-## Hoe het werkt
-`index.ts` is het startpunt. Het laadt config uit env vars en CLI flags, maakt en
-verbindt een `MendixClient`, registreert navigation- en domain-model tools, en
-start de MCP stdio transport. Bij SIGINT/SIGTERM wordt de client netjes opgeruimd.
+## Runtime gedrag
+- `src/index.ts` start MCP server op stdio en logt op stderr.
+- `src/web/api/index.ts` start `copilot-api` op HTTP met SSE chat events.
 
 ## Afhankelijkheden
-- `@modelcontextprotocol/sdk` - MCP server framework
-- `mendixplatformsdk` + `mendixmodelsdk` - Mendix SDK
-- `zod` - Schema validatie voor tool parameters
+- `@modelcontextprotocol/sdk`
+- `mendixplatformsdk` + `mendixmodelsdk`
+- `express`
+- `zod`
