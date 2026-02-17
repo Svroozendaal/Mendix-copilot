@@ -9,8 +9,8 @@ C# shell extension voor Mendix Studio Pro 10.x die de bestaande localhost Copilo
 ## Bestanden
 | Bestand | Doel | Status |
 |---------|------|--------|
-| WellBased.Copilot.StudioPro10.csproj | Buildconfig + Mendix Extensibility API package (`10.24.15-build.93102`) | Geimplementeerd |
-| manifest.json | Studio Pro extension manifest (DLL entry) | Geimplementeerd |
+| WellBased.Copilot.StudioPro10.csproj | Buildconfig + Mendix Extensibility API package (`10.24.15-build.93102`) en assembly `WellBased_Copilot_StudioPro10` | Geimplementeerd |
+| manifest.json | Studio Pro extension manifest (DLL entry `WellBased_Copilot_StudioPro10.dll`) | Geimplementeerd |
 | CopilotConstants.cs | Gedeelde constants voor pane, messaging en poorten | Geimplementeerd |
 | CopilotSettings.cs | Valideert/normaliseert poortinstellingen | Geimplementeerd |
 | StudioContextPayload.cs | Payloadmodel voor `WB_CONTEXT` berichten | Geimplementeerd |

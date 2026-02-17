@@ -14,9 +14,11 @@ import {
   listMicroflows,
   listModules,
   listPages,
+  streamChat,
   streamPlanExecute,
   validatePlan,
   type ChangePlan,
+  type ChatMessage,
   type PlanPreview,
   type ApiStatus,
 } from "./api-client";
@@ -121,6 +123,33 @@ interface PostcheckPayload {
   postCheck?: Array<{ module?: string; findingCount?: number }>;
 }
 
+interface ChatFinalPayload {
+  answer?: string;
+  sources?: string[];
+  suggestedPlanPrompt?: string;
+}
+
+interface ChatTraceEntry {
+  timestamp: string;
+  event: "assistant_token" | "tool_call" | "tool_result" | "error";
+  message: string;
+}
+
+interface ToolCallPayload {
+  toolName?: string;
+  input?: Record<string, unknown>;
+}
+
+interface ToolResultPayload {
+  toolName?: string;
+  summary?: string;
+}
+
+interface ChatThreadMessage extends ChatMessage {
+  id: string;
+  sources?: string[];
+}
+
 function isEmbeddedFromQueryString(): boolean {
   if (typeof window === "undefined") {
     return false;
@@ -131,6 +160,26 @@ function isEmbeddedFromQueryString(): boolean {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function createMessageId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function eventText(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  const valueRecord = asRecord(value);
+  if (!valueRecord) {
+    return "";
+  }
+  const message = valueRecord.message;
+  if (typeof message === "string") {
+    return message;
+  }
+  const text = valueRecord.text;
+  return typeof text === "string" ? text : "";
 }
 
 function renderCommand(command: unknown): string | undefined {
@@ -213,7 +262,17 @@ export function App() {
   });
 
   const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatThreadMessage[]>([
+    {
+      id: createMessageId("assistant"),
+      role: "assistant",
+      content:
+        "Ik ben je Mendix assistant. Stel een vraag over je app, dan antwoord ik op basis van de modelinhoud.",
+    },
+  ]);
+  const [chatTrace, setChatTrace] = useState<ChatTraceEntry[]>([]);
   const [chatBusy, setChatBusy] = useState(false);
+  const [planPrompt, setPlanPrompt] = useState("");
   const [activePlan, setActivePlan] = useState<ActivePlanState | null>(null);
   const [planStatus, setPlanStatus] = useState<"none" | "preview" | "running" | "completed">("none");
   const [approvalToken, setApprovalToken] = useState("");
@@ -517,6 +576,22 @@ export function App() {
     );
   }
 
+  function pushChatTrace(
+    eventName: ChatTraceEntry["event"],
+    message: string
+  ): void {
+    setChatTrace((previous) =>
+      [
+        ...previous,
+        {
+          timestamp: new Date().toISOString(),
+          event: eventName,
+          message,
+        },
+      ].slice(-500)
+    );
+  }
+
   function appendExecutionSummary(line: string): void {
     setExecutionSummary((previous) => (previous ? `${previous}\n${line}` : line));
   }
@@ -529,6 +604,31 @@ export function App() {
     setExecutionSummary("");
   }
 
+  function currentPlanContext(): {
+    selectedType?: "module" | "entity" | "microflow" | "page";
+    module?: string;
+    qualifiedName?: string;
+  } | undefined {
+    const planContext = {
+      selectedType: studioContext?.selectedType ?? undefined,
+      module: studioContext?.module ?? selectedModule ?? undefined,
+      qualifiedName: studioContext?.qualifiedName ?? selectedQualifiedName ?? undefined,
+    };
+    return planContext.selectedType || planContext.module || planContext.qualifiedName
+      ? planContext
+      : undefined;
+  }
+
+  function latestUserPromptFromChat(): string {
+    for (let index = chatMessages.length - 1; index >= 0; index -= 1) {
+      const message = chatMessages[index];
+      if (message.role === "user" && message.content.trim().length > 0) {
+        return message.content.trim();
+      }
+    }
+    return "";
+  }
+
   async function handleChatSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const message = chatInput.trim();
@@ -539,8 +639,177 @@ export function App() {
       setErrorMessage("Verbind eerst met een Mendix app.");
       return;
     }
-    if (planStatus !== "none") {
-      setErrorMessage("Er is al een actief plan. Gebruik Reject, Edit Prompt of Nieuw plan.");
+    setChatBusy(true);
+    setErrorMessage(null);
+    setChatTrace([]);
+    setExecutionView("progress");
+
+    const userMessage: ChatThreadMessage = {
+      id: createMessageId("user"),
+      role: "user",
+      content: message,
+    };
+    const assistantMessageId = createMessageId("assistant");
+
+    setChatMessages((previous) => [
+      ...previous,
+      userMessage,
+      {
+        id: assistantMessageId,
+        role: "assistant",
+        content: "",
+      },
+    ]);
+    setChatInput("");
+
+    try {
+      const messagesForRequest: ChatMessage[] = [
+        ...chatMessages.map((entry) => ({
+          role: entry.role,
+          content: entry.content,
+        })),
+        {
+          role: "user",
+          content: message,
+        },
+      ];
+      let streamedText = "";
+      let finalAnswer = "";
+      let finalSources: string[] = [];
+
+      await streamChat(
+        {
+          messages: messagesForRequest,
+          context: currentPlanContext(),
+        },
+        (streamEvent) => {
+          const payloadRecord = asRecord(streamEvent.data);
+
+          if (streamEvent.event === "assistant_token") {
+            const chunk = eventText(streamEvent.data);
+            if (!chunk) {
+              return;
+            }
+            streamedText += chunk;
+            setChatMessages((previous) =>
+              previous.map((entry) =>
+                entry.id === assistantMessageId
+                  ? {
+                      ...entry,
+                      content: streamedText,
+                    }
+                  : entry
+              )
+            );
+            return;
+          }
+
+          if (streamEvent.event === "tool_call") {
+            const payload = payloadRecord as ToolCallPayload | null;
+            const toolName = payload?.toolName ?? "tool";
+            const details = payload?.input ? ` ${JSON.stringify(payload.input)}` : "";
+            pushChatTrace("tool_call", `${toolName}${details}`);
+            return;
+          }
+
+          if (streamEvent.event === "tool_result") {
+            const payload = payloadRecord as ToolResultPayload | null;
+            const toolName = payload?.toolName ?? "tool";
+            const summary = payload?.summary ?? "completed";
+            pushChatTrace("tool_result", `${toolName}: ${summary}`);
+            return;
+          }
+
+          if (streamEvent.event === "error") {
+            const errorText = eventText(streamEvent.data) || "Onbekende chat-fout.";
+            pushChatTrace("error", errorText);
+            setErrorMessage(errorText);
+            setChatMessages((previous) =>
+              previous.map((entry) =>
+                entry.id === assistantMessageId
+                  ? {
+                      ...entry,
+                      content: streamedText || errorText,
+                    }
+                  : entry
+              )
+            );
+            return;
+          }
+
+          if (streamEvent.event === "final") {
+            const payload = payloadRecord as ChatFinalPayload | null;
+            finalAnswer = payload?.answer?.trim() || streamedText.trim();
+            finalSources = Array.isArray(payload?.sources)
+              ? payload.sources.filter((source): source is string => typeof source === "string")
+              : [];
+
+            if (typeof payload?.suggestedPlanPrompt === "string" && payload.suggestedPlanPrompt.trim()) {
+              setPlanPrompt(payload.suggestedPlanPrompt.trim());
+            }
+
+            setChatMessages((previous) =>
+              previous.map((entry) =>
+                entry.id === assistantMessageId
+                  ? {
+                      ...entry,
+                      content: finalAnswer || streamedText || "Geen antwoord ontvangen.",
+                      sources: finalSources,
+                    }
+                  : entry
+              )
+            );
+          }
+        },
+        { timeoutMs: 180000 }
+      );
+
+      if (!finalAnswer && streamedText.trim()) {
+        finalAnswer = streamedText.trim();
+        setChatMessages((previous) =>
+          previous.map((entry) =>
+            entry.id === assistantMessageId
+              ? {
+                  ...entry,
+                  content: finalAnswer,
+                }
+              : entry
+          )
+        );
+      }
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      setErrorMessage(messageText);
+      pushChatTrace("error", messageText);
+      setChatMessages((previous) =>
+        previous.map((entry) =>
+          entry.id === assistantMessageId
+            ? {
+                ...entry,
+                content: `Fout: ${messageText}`,
+              }
+            : entry
+        )
+      );
+    } finally {
+      setChatBusy(false);
+    }
+  }
+
+  async function handleGeneratePlanFromPrompt(): Promise<void> {
+    const prompt = planPrompt.trim();
+    if (!prompt) {
+      setErrorMessage("Vul eerst een planprompt in of gebruik de laatste uservraag.");
+      return;
+    }
+
+    if (!status.connected) {
+      setErrorMessage("Verbind eerst met een Mendix app.");
+      return;
+    }
+
+    if (planStatus === "running") {
+      setErrorMessage("Wacht tot de huidige execution klaar is.");
       return;
     }
 
@@ -548,20 +817,13 @@ export function App() {
     setErrorMessage(null);
     setExecutionLog([]);
     setExecutionSummary("");
-    setExecutionView("progress");
+    setExecutionView("log");
 
     try {
-      const planContext = {
-        selectedType: studioContext?.selectedType ?? undefined,
-        module: studioContext?.module ?? selectedModule ?? undefined,
-        qualifiedName: studioContext?.qualifiedName ?? selectedQualifiedName ?? undefined,
-      };
-      const hasContext = Boolean(planContext.selectedType || planContext.module || planContext.qualifiedName);
-
-      const planned = await createPlan(message, hasContext ? planContext : undefined);
+      const planned = await createPlan(prompt, currentPlanContext());
 
       setActivePlan({
-        prompt: message,
+        prompt,
         changePlan: planned.changePlan,
         preview: planned.preview,
         validationWarnings: [],
@@ -569,7 +831,6 @@ export function App() {
       });
       setPlanStatus("preview");
       pushExecutionLog("command_start", `Plan generated: ${planned.changePlan.planId}`);
-      setChatInput("");
       setConfirmText("");
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
@@ -596,7 +857,7 @@ export function App() {
 
     setChatBusy(true);
     setErrorMessage(null);
-    setExecutionView("progress");
+    setExecutionView("log");
 
     try {
       const validation = await validatePlan(activePlan.changePlan.planId);
@@ -738,7 +999,7 @@ export function App() {
 
   function handleEditPrompt(): void {
     if (activePlan) {
-      setChatInput(activePlan.prompt);
+      setPlanPrompt(activePlan.prompt);
     }
     resetPlanFlow();
   }
@@ -952,18 +1213,65 @@ export function App() {
                     type="text"
                     value={chatInput}
                     onChange={(event) => setChatInput(event.target.value)}
-                    placeholder="Beschrijf de wijziging die je wilt plannen..."
+                    placeholder="Stel je vraag over de Mendix app..."
                     disabled={chatBusy || planStatus === "running"}
                   />
-                  <button
-                    type="submit"
-                    disabled={chatBusy || !status.connected || !chatInput.trim() || planStatus !== "none"}
-                  >
-                    {chatBusy ? "Running..." : "Generate plan"}
+                  <button type="submit" disabled={chatBusy || !status.connected || !chatInput.trim()}>
+                    {chatBusy ? "Thinking..." : "Send"}
                   </button>
                 </form>
 
-                <p className="mode-banner">Mode: Plan only. Geen auto-execute.</p>
+                <p className="mode-banner">
+                  Mode: Codex-style agent chat. Eerst sparren met app-knowledge, daarna pas expliciet plan + execute.
+                </p>
+
+                <section className="chat-thread">
+                  {chatMessages.map((message) => (
+                    <article key={message.id} className={`chat-bubble ${message.role}`}>
+                      <header>{message.role === "user" ? "You" : "Copilot"}</header>
+                      <div className="chat-bubble-content">{message.content || "..."}</div>
+                      {message.sources && message.sources.length > 0 ? (
+                        <ul className="chat-sources">
+                          {message.sources.map((source, index) => (
+                            <li key={`${source}-${index}`}>
+                              <code>{source}</code>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </article>
+                  ))}
+                </section>
+
+                <section className="plan-bridge">
+                  <h3>Van Gesprek Naar Uitvoerbaar Plan</h3>
+                  <label>
+                    Plan prompt
+                    <textarea
+                      rows={3}
+                      value={planPrompt}
+                      onChange={(event) => setPlanPrompt(event.target.value)}
+                      placeholder="Beschrijf hier de definitieve wijziging voor generate plan..."
+                      disabled={chatBusy || planStatus === "running"}
+                    />
+                  </label>
+                  <div className="plan-bridge-actions">
+                    <button
+                      type="button"
+                      onClick={() => setPlanPrompt(latestUserPromptFromChat())}
+                      disabled={chatBusy}
+                    >
+                      Gebruik Laatste Uservraag
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleGeneratePlanFromPrompt()}
+                      disabled={chatBusy || !status.connected || !planPrompt.trim()}
+                    >
+                      Generate Executable Plan
+                    </button>
+                  </div>
+                </section>
 
                 {activePlan ? (
                   <section className="plan-preview-card">
@@ -1085,8 +1393,8 @@ export function App() {
                   </section>
                 ) : (
                   <p className="empty-plan">
-                    Start met een NL prompt in de chat input. De UI genereert alleen een plan totdat je expliciet op
-                    Approve klikt.
+                    Nog geen executable plan actief. Gebruik eerst de chat, zet daarna een plan prompt en klik op
+                    Generate Executable Plan.
                   </p>
                 )}
 
@@ -1105,8 +1413,17 @@ export function App() {
 
               <aside className="trace-panel execution-panel">
                 <header className="execution-header">
-                  <h3>Execution</h3>
-                  <button type="button" onClick={() => setExecutionLog([])}>
+                  <h3>Trace</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (executionView === "progress") {
+                        setChatTrace([]);
+                        return;
+                      }
+                      setExecutionLog([]);
+                    }}
+                  >
                     Clear
                   </button>
                 </header>
@@ -1116,7 +1433,7 @@ export function App() {
                     className={executionView === "progress" ? "active" : ""}
                     onClick={() => setExecutionView("progress")}
                   >
-                    Progress
+                    Assistant Trace
                   </button>
                   <button
                     type="button"
@@ -1127,17 +1444,30 @@ export function App() {
                   </button>
                 </nav>
                 <ul>
-                  {executionLog.map((entry, index) => (
-                    <li key={`${entry.timestamp}-${index}`} className={entry.event}>
-                      <span>{entry.timestamp}</span>
-                      <strong>{entry.event}</strong>
-                      <p>{entry.message}</p>
-                      {executionView === "log" && entry.commandText ? (
-                        <pre className="execution-command">{entry.commandText}</pre>
-                      ) : null}
-                    </li>
-                  ))}
-                  {executionLog.length === 0 ? <li className="empty-log">Nog geen events.</li> : null}
+                  {executionView === "progress"
+                    ? chatTrace.map((entry, index) => (
+                        <li key={`${entry.timestamp}-${index}`} className={entry.event}>
+                          <span>{entry.timestamp}</span>
+                          <strong>{entry.event}</strong>
+                          <p>{entry.message}</p>
+                        </li>
+                      ))
+                    : executionLog.map((entry, index) => (
+                        <li key={`${entry.timestamp}-${index}`} className={entry.event}>
+                          <span>{entry.timestamp}</span>
+                          <strong>{entry.event}</strong>
+                          <p>{entry.message}</p>
+                          {executionView === "log" && entry.commandText ? (
+                            <pre className="execution-command">{entry.commandText}</pre>
+                          ) : null}
+                        </li>
+                      ))}
+                  {executionView === "progress" && chatTrace.length === 0 ? (
+                    <li className="empty-log">Nog geen assistant trace events.</li>
+                  ) : null}
+                  {executionView === "log" && executionLog.length === 0 ? (
+                    <li className="empty-log">Nog geen execution events.</li>
+                  ) : null}
                 </ul>
               </aside>
             </div>

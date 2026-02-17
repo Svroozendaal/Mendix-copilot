@@ -15,9 +15,10 @@ PowerShell command scripts voor lokaal gebruik in development en Studio Pro depl
 - `start-copilot.ps1` draait vanuit repo root en start `npm run dev`.
 - `deploy-studio-pro10-panel.ps1` verwacht 1 parameter: pad naar Mendix app-folder.
 - Deployment script kopieert:
-  - `WellBased.Copilot.StudioPro10.dll`
+  - `WellBased_Copilot_StudioPro10.dll`
   - `manifest.json`
-  naar `<MendixAppFolder>/extensions/WellBased.Copilot.StudioPro10/`.
+  naar `<MendixAppFolder>/extensions/WellBased_Copilot_StudioPro10/`.
+- Als legacy map `<MendixAppFolder>/extensions/WellBased.Copilot.StudioPro10/` bestaat, wordt die eerst verwijderd.
 
 ## Afhankelijkheden
 - Node.js + npm (voor start script)

@@ -47,18 +47,18 @@ dotnet build .\studio-pro-extension-csharp\WellBased.Copilot.StudioPro10.csproj 
 
 Build output:
 
-- `studio-pro-extension-csharp\bin\Release\net8.0\WellBased.Copilot.StudioPro10.dll`
+- `studio-pro-extension-csharp\bin\Release\net8.0\WellBased_Copilot_StudioPro10.dll`
 - `studio-pro-extension-csharp\bin\Release\net8.0\manifest.json`
 
 ## Installatie in Studio Pro 10
 
 1. Build de extension.
-2. Kopieer `WellBased.Copilot.StudioPro10.dll` en `manifest.json` naar:
+2. Kopieer `WellBased_Copilot_StudioPro10.dll` en `manifest.json` naar:
    - `%LocalAppData%\Mendix\StudioPro\Extensions\WellBased\CopilotPanel10\`
 3. Start Studio Pro met extensibility flags.
 4. Open je app.
 5. Ga naar:
-   - `Extensions -> WellBased.Copilot.StudioPro10 -> Open Panel`
+   - `Extensions -> WellBased_Copilot_StudioPro10 -> Open Panel`
 
 ### Snelle helper vanuit repo
 
@@ -67,6 +67,9 @@ Je kunt dit ook in 1 command doen (build + copy naar app `extensions` folder):
 ```powershell
 .\commands\deploy-studio-pro10-panel.ps1 "C:\Pad\Naar\Jouw\MendixAppMap"
 ```
+
+Het deploy-script verwijdert automatisch een oude legacy map met puntnotatie
+(`extensions/WellBased.Copilot.StudioPro10`) om load errors te voorkomen.
 
 ## Context bridge
 

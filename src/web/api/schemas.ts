@@ -75,16 +75,37 @@ export const moduleNameParamSchema = z.object({
 
 export const chatBodySchema = z
   .object({
-    message: z.string().trim().min(1, "message is verplicht"),
+    message: z.string().trim().min(1).optional(),
+    messages: z
+      .array(
+        z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string().trim().min(1, "message content is verplicht"),
+        })
+      )
+      .min(1)
+      .optional(),
     mode: z.enum(["assistant", "tooling"]).optional(),
     context: z
       .object({
+        selectedType: z.enum(["module", "entity", "microflow", "page"]).optional(),
         module: z.string().trim().min(1).optional(),
         qualifiedName: z.string().trim().min(1).optional(),
       })
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const hasSingleMessage = Boolean(value.message?.trim());
+    const hasConversationMessages = Array.isArray(value.messages) && value.messages.length > 0;
+    if (!hasSingleMessage && !hasConversationMessages) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Geef message of messages op.",
+        path: ["message"],
+      });
+    }
+  });
 
 export const planBodySchema = z
   .object({

@@ -28,12 +28,19 @@ export interface ApiStatusShape {
 }
 
 export interface ApiChatContext {
+  selectedType?: "module" | "entity" | "microflow" | "page";
   module?: string;
   qualifiedName?: string;
 }
 
+export interface ApiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface ApiChatRequest {
-  message: string;
+  message?: string;
+  messages?: ApiChatMessage[];
   mode?: "assistant" | "tooling";
   context?: ApiChatContext;
 }
@@ -51,6 +58,8 @@ export interface ApiToolResultEvent {
 
 export interface ApiFinalEvent {
   answer: string;
+  sources?: string[];
+  suggestedPlanPrompt?: string;
 }
 
 export type SseEventName =

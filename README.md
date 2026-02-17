@@ -50,6 +50,13 @@ MENDIX_BRANCH=main
 COPILOT_API_PORT=8787
 COPILOT_API_HOST=127.0.0.1
 COPILOT_APPROVAL_TOKEN=change-me
+OPENAI_API_KEY=optional-for-generative-chat
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+COPILOT_CHAT_APP_CACHE_TTL_MS=300000
+COPILOT_CHAT_MODULE_CACHE_TTL_MS=300000
+COPILOT_CHAT_MAX_TOOL_ROUNDS=8
+COPILOT_CHAT_MAX_TOOL_CALLS=14
 ```
 
 Frontend variabele:
@@ -118,6 +125,7 @@ npm run build:all-hosts          # alles in 1 command
 De embedded Studio Pro hosts dupliceren geen planner/executor.
 De web UI (los of embedded) roept dezelfde localhost API aan:
 
+- conversation chat: `/api/chat`
 - planning: `/api/plan`
 - validatie: `/api/plan/validate`
 - execute: `/api/plan/execute`

@@ -17,7 +17,13 @@ if (-not (Test-Path -Path $projectFile)) {
 }
 
 $resolvedAppFolder = Resolve-Path -Path $MendixAppFolder -ErrorAction Stop
-$targetDir = Join-Path -Path $resolvedAppFolder -ChildPath "extensions/WellBased.Copilot.StudioPro10"
+$targetDir = Join-Path -Path $resolvedAppFolder -ChildPath "extensions/WellBased_Copilot_StudioPro10"
+$legacyTargetDir = Join-Path -Path $resolvedAppFolder -ChildPath "extensions/WellBased.Copilot.StudioPro10"
+
+if (Test-Path -Path $legacyTargetDir) {
+  Write-Host "Verwijderen van legacy extension map: $legacyTargetDir"
+  Remove-Item -Path $legacyTargetDir -Recurse -Force
+}
 
 if (-not $SkipBuild) {
   Write-Host "Bouwen van Studio Pro 10 extension..."
@@ -25,7 +31,7 @@ if (-not $SkipBuild) {
 }
 
 $sourceFiles = @(
-  "WellBased.Copilot.StudioPro10.dll",
+  "WellBased_Copilot_StudioPro10.dll",
   "manifest.json"
 )
 
@@ -49,4 +55,4 @@ Write-Host ""
 Write-Host "Klaar."
 Write-Host "Volgende stap:"
 Write-Host "1) Start Studio Pro 10 met: --enable-extension-development"
-Write-Host "2) Open: Extensions -> WellBased.Copilot.StudioPro10 -> Open Panel"
+Write-Host "2) Open: Extensions -> WellBased_Copilot_StudioPro10 -> Open Panel"

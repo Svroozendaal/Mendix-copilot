@@ -30,12 +30,19 @@ export interface ApiTextResponse<TMeta> {
 }
 
 export interface ChatRequest {
-  message: string;
+  message?: string;
+  messages?: ChatMessage[];
   mode?: "assistant" | "tooling";
   context?: {
+    selectedType?: "module" | "entity" | "microflow" | "page";
     module?: string;
     qualifiedName?: string;
   };
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
 }
 
 export interface PlanRequestContext {
@@ -265,60 +272,78 @@ function parseEventChunk(chunk: string): StreamEvent | null {
   };
 }
 
-export async function streamChat(request: ChatRequest, onEvent: (event: StreamEvent) => void): Promise<void> {
+export async function streamChat(
+  request: ChatRequest,
+  onEvent: (event: StreamEvent) => void,
+  options?: { timeoutMs?: number }
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 180000;
+  const controller = new AbortController();
+  const timeoutHandle = window.setTimeout(() => controller.abort(), timeoutMs);
+
   const response = await fetch(`${API_BASE_URL}/api/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(request),
+    signal: controller.signal,
   });
 
-  if (!response.ok) {
-    throw await parseError(response);
-  }
-
-  if (!response.body) {
-    throw new Error("Chat streaming niet beschikbaar: response body ontbreekt.");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) {
-      break;
+  try {
+    if (!response.ok) {
+      throw await parseError(response);
     }
 
-    buffer += decoder.decode(value, { stream: true });
+    if (!response.body) {
+      throw new Error("Chat streaming niet beschikbaar: response body ontbreekt.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
     while (true) {
-      const separatorIndex = buffer.indexOf("\n\n");
-      if (separatorIndex < 0) {
+      const { value, done } = await reader.read();
+      if (done) {
         break;
       }
 
-      const chunk = buffer.slice(0, separatorIndex).trim();
-      buffer = buffer.slice(separatorIndex + 2);
-      if (!chunk) {
-        continue;
-      }
+      buffer += decoder.decode(value, { stream: true });
 
-      const parsed = parseEventChunk(chunk);
+      while (true) {
+        const separatorIndex = buffer.indexOf("\n\n");
+        if (separatorIndex < 0) {
+          break;
+        }
+
+        const chunk = buffer.slice(0, separatorIndex).trim();
+        buffer = buffer.slice(separatorIndex + 2);
+        if (!chunk) {
+          continue;
+        }
+
+        const parsed = parseEventChunk(chunk);
+        if (parsed) {
+          onEvent(parsed);
+        }
+      }
+    }
+
+    const remainder = buffer.trim();
+    if (remainder) {
+      const parsed = parseEventChunk(remainder);
       if (parsed) {
         onEvent(parsed);
       }
     }
-  }
-
-  const remainder = buffer.trim();
-  if (remainder) {
-    const parsed = parseEventChunk(remainder);
-    if (parsed) {
-      onEvent(parsed);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Chat request timeout na ${timeoutMs}ms.`);
     }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutHandle);
   }
 }
 
