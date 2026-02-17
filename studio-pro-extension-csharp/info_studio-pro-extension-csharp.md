@@ -1,44 +1,30 @@
 # info_studio-pro-extension-csharp
 
-> Laatst bijgewerkt: 2026-02-16
+> Last updated: 2026-02-17
 
-## Doel
+## Purpose
 
-C# shell extension voor Mendix Studio Pro 10.x die de bestaande localhost Copilot web UI embedt in een dockable pane.
+Studio Pro 10 extension that shows Git changes for Mendix files in a dockable pane. The pane is fully served by the extension itself and does not require a local dev web server.
 
-## Bestanden
-| Bestand | Doel | Status |
-|---------|------|--------|
-| WellBased.Copilot.StudioPro10.csproj | Buildconfig + Mendix Extensibility API package (`10.24.15-build.93102`) en assembly `WellBased_Copilot_StudioPro10` | Geimplementeerd |
-| manifest.json | Studio Pro extension manifest (DLL entry `WellBased_Copilot_StudioPro10.dll`) | Geimplementeerd |
-| CopilotConstants.cs | Gedeelde constants voor pane, messaging en poorten | Geimplementeerd |
-| CopilotSettings.cs | Valideert/normaliseert poortinstellingen | Geimplementeerd |
-| StudioContextPayload.cs | Payloadmodel voor `WB_CONTEXT` berichten | Geimplementeerd |
-| StudioContextMapper.cs | Map ActiveDocumentChanged -> context payload | Geimplementeerd |
-| StudioContextBridge.cs | WebView message bridge en context push | Geimplementeerd |
-| CopilotDockablePaneExtension.cs | Dockable pane extension entrypoint | Geimplementeerd |
-| CopilotDockablePaneViewModel.cs | WebView pane viewmodel + lifecycle | Geimplementeerd |
-| CopilotMenuExtension.cs | Extensions-menu items (open/close panel) | Geimplementeerd |
-| CopilotWebServerExtension.cs | Interne route die wrapper HTML serveert | Geimplementeerd |
-| CopilotPanelHtml.cs | Wrapper UI (fallback + iframe embed + postMessage bridge) | Geimplementeerd |
-| README.md | Build/install instructies voor Studio Pro 10 | Geimplementeerd |
+## Key files
 
-## Hoe het werkt
+| File | Purpose |
+|---|---|
+| `AutoCommitMessage.csproj` | Build config + package references |
+| `manifest.json` | Mendix extension manifest (`AutoCommitMessage.dll`) |
+| `ExtensionConstants.cs` | Shared pane and route constants |
+| `GitChangesDockablePaneExtension.cs` | Dockable pane entrypoint |
+| `GitChangesDockablePaneViewModel.cs` | WebView pane view model |
+| `GitChangesWebServerExtension.cs` | Internal route that renders panel HTML |
+| `GitChangesPanelHtml.cs` | In-extension Git changes UI |
+| `GitChangesService.cs` | Reads Git status/diffs via LibGit2Sharp |
+| `GitChangesPayload.cs` | DTOs for changes payload |
+| `ChangesPanel.cs` | Native WinForms panel implementation |
 
-1. `CopilotMenuExtension` opent/sluit het pane.
-2. `CopilotDockablePaneExtension` maakt een `WebViewDockablePaneViewModel`.
-3. Pane laadt interne HTML via `CopilotWebServerExtension`.
-4. Wrapper HTML zoekt localhost UI poort en embedt `http://localhost:<port>?embedded=1`.
-5. `StudioContextBridge` pusht `WB_CONTEXT` berichten naar de web UI.
-6. Web UI hergebruikt bestaande `/api/plan*` en SSE execution flow.
+## Runtime flow
 
-## Afhankelijkheden
-
-- Mendix Extensibility API (`Mendix.StudioPro.ExtensionsAPI`)
-- Bestaande Node/TS backend en web-ui processen
-- `shared/studio-context.ts` als contractbron (string-contracten identiek)
-
-## Bekende beperkingen
-
-- C# shell leest alleen `ActiveDocumentChanged`; detailselectie binnen editors is best effort.
-- Build vereist lokale .NET 8 SDK.
+1. Menu opens pane by ID.
+2. Pane loads extension route (`autocommitmessage`).
+3. Route reads current app path and calls `GitChangesService.ReadChanges(...)`.
+4. HTML renders file list, staged status, and selected diff.
+5. Refresh reloads the route and fetches current Git state.

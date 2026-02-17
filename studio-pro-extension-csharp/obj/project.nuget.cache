@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "dgSpecHash": "AFCfoYVlK9w=",
+  "success": true,
+  "projectFilePath": "C:\\Workspaces\\Mendix-autoCommit\\studio-pro-extension-csharp\\AutoCommitMessage.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Simon\\.nuget\\packages\\libgit2sharp\\0.30.0\\libgit2sharp.0.30.0.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\libgit2sharp.nativebinaries\\2.0.322\\libgit2sharp.nativebinaries.2.0.322.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\mendix.studiopro.extensionsapi\\10.24.15-build.93102\\mendix.studiopro.extensionsapi.10.24.15-build.93102.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\microsoft.extensions.objectpool\\6.0.16\\microsoft.extensions.objectpool.6.0.16.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\system.componentmodel.composition\\8.0.0\\system.componentmodel.composition.8.0.0.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\system.formats.asn1\\8.0.0\\system.formats.asn1.8.0.0.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\system.security.accesscontrol\\6.0.0\\system.security.accesscontrol.6.0.0.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\system.security.cryptography.pkcs\\8.0.0\\system.security.cryptography.pkcs.8.0.0.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\system.security.cryptography.xml\\6.0.1\\system.security.cryptography.xml.6.0.1.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\system.servicemodel.primitives\\8.0.0\\system.servicemodel.primitives.8.0.0.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.24\\microsoft.netcore.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.24\\microsoft.windowsdesktop.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\Simon\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.24\\microsoft.aspnetcore.app.ref.8.0.24.nupkg.sha512"
+  ],
+  "logs": []
+}

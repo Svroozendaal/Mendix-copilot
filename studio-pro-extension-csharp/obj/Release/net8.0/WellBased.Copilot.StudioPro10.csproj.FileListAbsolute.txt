@@ -1,0 +1,14 @@
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased.Copilot.StudioPro10.csproj.AssemblyReference.cache
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased.Copilot.StudioPro10.GeneratedMSBuildEditorConfig.editorconfig
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased.Copilot.StudioPro10.AssemblyInfoInputs.cache
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased.Copilot.StudioPro10.AssemblyInfo.cs
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased.Copilot.StudioPro10.csproj.CoreCompileInputs.cache
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased.Copilot.StudioPro10.sourcelink.json
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\bin\Release\net8.0\manifest.json
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\bin\Release\net8.0\WellBased_Copilot_StudioPro10.deps.json
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\bin\Release\net8.0\WellBased_Copilot_StudioPro10.dll
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\bin\Release\net8.0\WellBased_Copilot_StudioPro10.pdb
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased_Copilot_StudioPro10.dll
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\refint\WellBased_Copilot_StudioPro10.dll
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\WellBased_Copilot_StudioPro10.pdb
+C:\Workspaces\Mendix-copilot\studio-pro-extension-csharp\obj\Release\net8.0\ref\WellBased_Copilot_StudioPro10.dll
