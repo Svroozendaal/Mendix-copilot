@@ -1,0 +1,15 @@
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\bin\Debug\net8.0\MendixCommitParser.exe
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\bin\Debug\net8.0\MendixCommitParser.deps.json
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\bin\Debug\net8.0\MendixCommitParser.runtimeconfig.json
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\bin\Debug\net8.0\MendixCommitParser.dll
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\bin\Debug\net8.0\MendixCommitParser.pdb
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.GeneratedMSBuildEditorConfig.editorconfig
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.AssemblyInfoInputs.cache
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.AssemblyInfo.cs
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.csproj.CoreCompileInputs.cache
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.sourcelink.json
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.dll
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\refint\MendixCommitParser.dll
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.pdb
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\MendixCommitParser.genruntimeconfig.cache
+C:\Workspaces\Mendix-autoCommit\MendixCommitParser\obj\Debug\net8.0\ref\MendixCommitParser.dll

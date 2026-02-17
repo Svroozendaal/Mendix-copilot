@@ -1,289 +1,407 @@
-# PHASE 6 MASTERPROMPT — Data Collection & Export
-## Mendix Studio Pro 10 — Git Changes Extension
+﻿# PHASE 6 MASTERPROMPT - Data Collection and Export
+## Mendix Studio Pro 10 - Git Changes Extension
 
 ---
 
 ## Purpose
 
-Phase 6 extends the Git Changes extension with a **data export capability**. The goal is to collect real-world commit data from developers using the extension so that a commit parser agent can later be trained on this data. The export writes structured JSON files to a shared folder that a separate application monitors.
+Phase 6 adds export capability to collect real-world Git change data from Studio Pro users.
+The extension writes structured JSON files to a shared folder for the future parser app in Phase 7.
 
-This phase produces:
-1. An "Export Changes" button in the ChangesPanel UI
-2. JSON serialization of the full change set with metadata
-3. A shared folder structure for the receiving application to read
+This prompt is intentionally multi-agent and must use the full quality pipeline.
+
+---
+
+## Agent Execution Order
+
+Follow this order exactly:
+1. Memory (preflight)
+2. Architect
+3. Implementer
+4. Tester
+5. Reviewer
+6. Prompt Refiner
+7. Memory (closeout)
 
 ---
 
 ## Prerequisites
 
 Before running this prompt, confirm:
-- Phase 1-5 have completed successfully
-- The extension builds cleanly and passes all tests
-- `SESSION_STATE.md` shows Phase 5 approved
-- You have decided on the shared folder path (default: `C:\MendixGitData\exports\`)
+- Phase 5.5 implementation is complete.
+- `dotnet build` passes in the extension solution.
+- No open blockers in session memory.
+- A default export root is chosen (`C:\MendixGitData`).
 
 ---
 
-## Instructions for Codex
+## Path Resolution Rule (must do first)
 
-You are now acting as the **Architect Agent** (for planning) followed by the **Implementer Agent** (for execution). Switch agents at Step 3.
+This repository may use either `./.claude/agent-memory/` or `./claude/agent-memory/`.
+
+At runtime:
+1. If `./.claude/agent-memory/SESSION_STATE.md` exists, use `./.claude/agent-memory/` as `MEMORY_ROOT`.
+2. Else use `./claude/agent-memory/` as `MEMORY_ROOT`.
+3. Use `MEMORY_ROOT` consistently for all memory writes in this phase.
 
 ---
 
-## Step 1 — Load context (Architect)
+## Step 1 - Memory Preflight
 
-Read in order:
-1. `./claude/agent-memory/SESSION_STATE.md`
-2. `./claude/agent-memory/DECISIONS_LOG.md`
-3. `./PRODUCT_PLAN.md`
+Active agent: **Memory**
+
+Read:
+1. `MEMORY_ROOT/SESSION_STATE.md`
+2. `MEMORY_ROOT/DECISIONS_LOG.md`
+3. `MEMORY_ROOT/PROGRESS.md`
+4. `MEMORY_ROOT/REVIEW_NOTES.md`
+5. `./AGENTS.md` (sections 3, 6, 7)
+6. `./PRODUCT_PLAN.md`
 
 Confirm:
 ```
-✓ Phase 5 approved — base extension is complete
-✓ Beginning Phase 6 — Data Collection
+[OK] Memory loaded
+[OK] Beginning Phase 6 - Data Collection and Export
+```
+
+If blockers exist, append a blocker note to `SESSION_STATE.md` and stop.
+
+Write handoff:
+```
+## HANDOFF - Memory - [timestamp]
+STATUS: COMPLETE
+NEXT_AGENT: Architect
+SUMMARY: Phase 6 preflight complete. Context synchronized.
+BLOCKERS: none
 ```
 
 ---
 
-## Step 2 — Architecture decisions (Architect)
+## Step 2 - Architecture and Contracts
 
-Make and record these decisions in `DECISIONS_LOG.md`:
+Active agent: **Architect**
 
-### Decision 6a — Export data structure
-Define the exact JSON schema for exported change sets. Must include:
-- `timestamp` (ISO 8601 string)
-- `projectName` (string — extracted from project directory name)
-- `branchName` (string — from GitChangesPayload)
-- `userName` (string — from `git config user.name`)
-- `userEmail` (string — from `git config user.email`)
-- `changes` (array of objects with: `filePath`, `status`, `isStaged`, `diffText`)
+Read:
+1. `./agents/architect.md`
+2. `MEMORY_ROOT/SESSION_STATE.md`
+3. `MEMORY_ROOT/DECISIONS_LOG.md`
+4. `./PRODUCT_PLAN.md`
 
-Example:
-```json
-{
-  "timestamp": "2025-02-17T14:32:00Z",
-  "projectName": "MyMendixApp",
-  "branchName": "feature/new-dashboard",
-  "userName": "Mister Mo",
-  "userEmail": "mo@example.com",
-  "changes": [
-    {
-      "filePath": "MyModule/Domain/Entity.mpr",
-      "status": "Modified",
-      "isStaged": false,
-      "diffText": "Binary file changed — diff not available"
-    }
-  ]
-}
-```
+Record these decisions in `DECISIONS_LOG.md`:
 
-### Decision 6b — Export folder structure
-Define the shared folder layout:
+### Decision 6a - Export schema
+Define final JSON schema:
+- `timestamp` (ISO 8601 UTC string)
+- `projectName` (string)
+- `branchName` (string)
+- `userName` (string)
+- `userEmail` (string)
+- `changes` (array)
+  - `filePath` (string)
+  - `status` (string)
+  - `isStaged` (bool)
+  - `diffText` (string)
+  - `modelChanges` (optional array, if present in payload from Phase 5.5)
+    - `changeType`
+    - `elementType`
+    - `elementName`
+    - `details`
+
+### Decision 6b - Folder layout
+Define shared layout:
 ```
 C:\MendixGitData\
-├── exports\                    ← Extension writes here
-│   └── [timestamp]_[project].json
-└── processed\                  ← Receiving app moves files here after reading
-    └── [timestamp]_[project].json
+  exports\      # extension writes here
+  processed\    # receiver moves consumed files here
+  errors\       # receiver moves malformed files here
 ```
 
-The extension writes to `exports\`. The receiving app is responsible for moving files to `processed\` once read.
+### Decision 6c - File naming
+Format: `[timestamp]_[projectName].json`
+Example: `2026-02-17T21-40-00Z_MyMendixApp.json`
+Rule: replace `:` with `-` in filename timestamp.
 
-### Decision 6c — File naming convention
-Format: `[ISO8601-timestamp]_[projectName].json`
-Example: `2025-02-17T14-32-00Z_MyMendixApp.json`
-(Note: colons replaced with hyphens for Windows filesystem compatibility)
+### Decision 6d - UI surface
+Define export trigger in UI:
+- Add `Export Changes` action next to refresh in WinForms panel.
+- Keep button disabled when no changes are loaded.
+- Non-blocking execution (`Task.Run` + UI `Invoke`).
+- Success and failure status shown to user.
 
-### Decision 6d — UI placement
-Add a button to `ChangesPanel` next to the Refresh button:
-- Text: `"Export Changes"`
-- Enabled only when: `lvChanges.Items.Count > 0` (there are changes to export)
-- Shows success message after export: `"Exported X changes to [path]"`
+If an embedded/HTML panel exists, define equivalent export action there as well.
 
-### Decision 6e — Git user info retrieval
-Use LibGit2Sharp to read Git config:
-```csharp
-var config = repo.Config;
-var userName = config.GetValueOrDefault<string>("user.name", "Unknown");
-var userEmail = config.GetValueOrDefault<string>("user.email", "unknown@example.com");
+### Decision 6e - Git user identity source
+Use repository config:
+- `user.name` fallback: `Unknown`
+- `user.email` fallback: `unknown@example.com`
+
+### Decision 6f - File plan
+Architect must list exact files:
+- `ExportService.cs` (CREATE)
+- `ChangesPanel.Designer.cs` (MODIFY)
+- `ChangesPanel.cs` (MODIFY)
+- `GitChangesPanelHtml.cs` (MODIFY if present)
+- `MEMORY_ROOT/EXPORT_CONTRACT.md` (CREATE)
+
+Write handoff:
 ```
-
----
-
-## Step 3 — Switch to Implementer
-
-Write to `SESSION_STATE.md`:
-```
-## HANDOFF — Architect — [timestamp]
+## HANDOFF - Architect - [timestamp]
 STATUS: COMPLETE
 NEXT_AGENT: Implementer
-SUMMARY: Export architecture defined. JSON schema, folder structure, UI button specified.
+SUMMARY: Export architecture and contracts defined for Phase 6.
 BLOCKERS: none
 ```
 
-**Now switch to Implementer agent.** Read `./agents/IMPLEMENTER.md` and continue below.
-
 ---
 
-## Step 4 — Create ExportService.cs (Implementer)
+## Step 3 - Implementation
 
-Create a new static service class `ExportService.cs` in the extension project.
+Active agent: **Implementer**
 
-Requirements:
+Read:
+1. `./agents/implementer.md`
+2. `MEMORY_ROOT/SESSION_STATE.md`
+3. `MEMORY_ROOT/DECISIONS_LOG.md`
+
+### 3.1 Create ExportService.cs
+Create static service with:
 - `public static class ExportService`
-- Single public method: `public static string ExportChanges(GitChangesPayload payload, string projectPath, string exportFolderPath)`
-- Reads Git user name and email from `repo.Config` (handle missing values gracefully)
-- Extracts project name from the last directory segment of `projectPath`
-- Generates ISO 8601 timestamp (UTC) with colons replaced by hyphens for filename
-- Serializes the full export object to JSON using `System.Text.Json.JsonSerializer`
-- Writes to `exportFolderPath\exports\[filename].json`
-- Creates the `exports\` directory if it does not exist
-- Returns the full file path on success
-- Throws `IOException` on write failure (caller must catch)
+- `public static string ExportChanges(GitChangesPayload payload, string projectPath, string exportRootPath)`
 
-Error handling:
-- If `exportFolderPath` does not exist, create it
-- If file write fails, let the exception propagate (the UI will catch it)
+Behavior:
+- Determine `projectName` from `projectPath`.
+- Resolve branch from payload.
+- Read Git identity from `Repository.Discover(projectPath)` and repo config.
+- Map all file changes (`filePath`, `status`, `isStaged`, `diffText`, optional `modelChanges`).
+- Serialize JSON with `System.Text.Json`.
+- Create folders if missing.
+- Write to `exportRootPath\exports\[filename].json`.
+- Return full output path.
 
-Run `dotnet build`. Confirm PASS.
+Error policy:
+- Throw on write failures (`IOException` flows to caller).
+- Do not swallow exceptions silently.
 
-Log to `PROGRESS.md`:
-```
-## ExportService.cs — COMPLETE — [timestamp]
-Build status: PASS
-```
+Run `dotnet build` after completion.
+Append completion entry to `PROGRESS.md`.
 
----
-
-## Step 5 — Update ChangesPanel UI (Implementer)
-
+### 3.2 Update ChangesPanel UI
 Modify `ChangesPanel.Designer.cs` and `ChangesPanel.cs`:
+- Add `btnExport` near `btnRefresh`.
+- Initial `Enabled = false`.
+- Add constant export root: `@"C:\MendixGitData"`.
+- In `UpdateUI`, enable export only when payload has changes.
+- Implement `btnExport_Click`:
+  - Guard against null or empty payload.
+  - Disable button.
+  - Run export on background thread.
+  - Update `lblStatus` on UI thread:
+    - Success: `Exported X changes to [path]`
+    - Failure: `Export failed: [message]`
+  - Re-enable in `finally`.
 
-### Designer changes:
-- Add `btnExport` (Button) next to `btnRefresh` in the top panel
-- Text: `"📤 Export Changes"`
-- Width: 120px
-- Enabled: false (initially — will be enabled when changes exist)
+Run `dotnet build` after each modified file.
+Append completion entries to `PROGRESS.md`.
 
-### Code-behind changes:
-- Add constant: `private const string DEFAULT_EXPORT_FOLDER = @"C:\MendixGitData";`
-- Add method: `private void btnExport_Click(object sender, EventArgs e)`
-  - Disable `btnExport` during operation
-  - Call `ExportService.ExportChanges(lastPayload, projectPath, DEFAULT_EXPORT_FOLDER)` on background thread
-  - On success: show message `lblStatus.Text = $"✓ Exported {count} changes to {filePath}"`
-  - On error: show message `lblStatus.Text = $"Export failed: {ex.Message}"`
-  - Re-enable `btnExport` in finally block
-- In `UpdateUI()`: enable `btnExport` only if `payload.Changes.Count > 0`
+### 3.3 Update embedded panel if present
+If `GitChangesPanelHtml.cs` exists, add equivalent export action and status messaging.
+Do not break existing functionality.
 
-Thread safety:
-- Use `Task.Run` for the export operation (file I/O should not block UI)
-- Use `this.Invoke()` for all UI updates from the background thread
+Run `dotnet build`.
+Append completion entry to `PROGRESS.md`.
 
-Run `dotnet build`. Confirm PASS.
+### 3.4 Write export contract
+Create `MEMORY_ROOT/EXPORT_CONTRACT.md` with:
+- Watched folder (`C:\MendixGitData\exports\`)
+- JSON format and schema reference
+- Processing protocol (`exports -> processed`)
+- Malformed file handling (`exports -> errors`)
+- Note: receiver implementation is Phase 7
 
-Log to `PROGRESS.md`:
+### 3.5 Implementer handoff
+Write:
 ```
-## ChangesPanel.cs — MODIFIED — [timestamp]
-Build status: PASS
-Change: Added Export button and ExportService integration
-```
-
----
-
-## Step 6 — Update the receiving app structure (Implementer)
-
-**Wait — this is a separate app. Do not create code for it yet.** Instead, document the contract.
-
-Create a new file: `./claude/agent-memory/EXPORT_CONTRACT.md`
-
-Content:
-```markdown
-# Export Data Contract
-## Mendix Git Changes Extension → Commit Parser Agent
-
-## Folder watched by receiving app
-`C:\MendixGitData\exports\`
-
-## File format
-JSON, UTF-8 encoded
-
-## Schema
-See Decision 6a in DECISIONS_LOG.md
-
-## Processing protocol
-1. Receiving app watches `exports\` folder
-2. When a new .json file appears, read it
-3. Parse and process the commit data
-4. Move the file to `C:\MendixGitData\processed\` (or delete)
-5. Never leave files in `exports\` — it will fill up
-
-## Error handling
-If a file in `exports\` is malformed JSON:
-- Move it to `C:\MendixGitData\errors\` for manual inspection
-- Log the error but do not crash the watcher
-
-## Receiving app will be built in Phase 7.
-```
-
----
-
-## Step 7 — Test the export (Implementer)
-
-Perform a code path trace:
-
-1. Developer opens a Git project with changes
-2. Clicks Refresh → `lvChanges` populates → `btnExport` becomes enabled
-3. Clicks Export Changes → `Task.Run` → `ExportService.ExportChanges()`
-4. JSON file written to `C:\MendixGitData\exports\[timestamp]_[project].json`
-5. Success message shown in `lblStatus`
-
-Trace potential failures:
-- No write permission to `C:\MendixGitData` → `IOException` caught, error shown
-- Disk full → `IOException` caught, error shown
-- User name/email not in Git config → defaults used ("Unknown", "unknown@example.com")
-
-Document trace results in `REVIEW_NOTES.md` under a new section "Phase 6 Testing".
-
----
-
-## Step 8 — Write completion
-
-Update `SESSION_STATE.md`:
-
-```
-## HANDOFF — Implementer — [timestamp]
+## HANDOFF - Implementer - [timestamp]
 STATUS: COMPLETE
 NEXT_AGENT: Tester
-SUMMARY: Export button added. ExportService implemented. Default folder: C:\MendixGitData. Build passing.
+SUMMARY: Export service and UI integration implemented. Build passing.
 BLOCKERS: none
 ```
 
-Output:
+---
+
+## Step 4 - Testing and Validation
+
+Active agent: **Tester**
+
+Read:
+1. `./agents/TESTER.md`
+2. `MEMORY_ROOT/SESSION_STATE.md`
+3. `MEMORY_ROOT/PROGRESS.md`
+4. `MEMORY_ROOT/DECISIONS_LOG.md`
+
+### 4.1 Build verification
+Run:
 ```
-╔══════════════════════════════════════════╗
-║  PHASE 6 COMPLETE — Data Collection      ║
-╠══════════════════════════════════════════╣
-║  New files:      1 (ExportService.cs)    ║
-║  Modified files: 2 (Panel Designer + CS) ║
-║  Build status:   PASS                    ║
-║  Export folder:  C:\MendixGitData        ║
-╠══════════════════════════════════════════╣
-║  NEXT STEP:                              ║
-║  Run: prompts/PHASE_7_COMMIT_PARSER.md   ║
-║  Lead agent: Architect                   ║
-╠══════════════════════════════════════════╣
-║  MANUAL TEST:                            ║
-║  1. Load extension in Studio Pro 10      ║
-║  2. Make local changes, click Refresh    ║
-║  3. Click "Export Changes"               ║
-║  4. Verify JSON file in C:\MendixGitData ║
-╚══════════════════════════════════════════╝
+dotnet clean
+dotnet build
+```
+Record pass/fail.
+
+### 4.2 Static verification checklist
+Verify by reading code:
+- Export JSON includes required schema fields.
+- Optional `modelChanges` is preserved when present.
+- `btnExport` state handling prevents double execution.
+- Export work does not block UI thread.
+- Exceptions are surfaced as readable status messages.
+
+### 4.3 Functional code-path tracing
+Trace these scenarios:
+1. Repo with changes -> export succeeds.
+2. Repo with no changes -> export disabled.
+3. Missing write permission -> failure message shown.
+4. Missing Git user config -> fallback values used.
+
+### 4.4 Edge cases
+Trace:
+- Disk full.
+- Long project names.
+- Branch name with slash.
+- Non-ASCII file paths.
+
+Log bugs to `REVIEW_NOTES.md` with severity and reproduction notes.
+
+### 4.5 Tester verdict and handoff
+Write:
+```
+## TEST VERDICT - Tester - [timestamp]
+RESULT: PASS | FAIL
+Must-Have failures: [count]
+Total issues found: [count]
+See: MEMORY_ROOT/REVIEW_NOTES.md
+```
+
+Then:
+```
+## HANDOFF - Tester - [timestamp]
+STATUS: COMPLETE
+NEXT_AGENT: Reviewer
+SUMMARY: Phase 6 validation complete. Findings logged.
+BLOCKERS: [none | list]
+```
+
+---
+
+## Step 5 - Review and Approval Gate
+
+Active agent: **Reviewer**
+
+Read:
+1. `./agents/reviewer.md`
+2. `MEMORY_ROOT/SESSION_STATE.md`
+3. `MEMORY_ROOT/REVIEW_NOTES.md`
+4. `MEMORY_ROOT/DECISIONS_LOG.md`
+5. `MEMORY_ROOT/PROGRESS.md`
+
+Review focus:
+- Architecture compliance with Decision 6a-6f.
+- Error handling quality.
+- Thread safety and UI responsiveness.
+- Contract readiness for Phase 7 parser app.
+
+If must-fix issues exist:
+1. Write change requests to `REVIEW_NOTES.md`.
+2. Set handoff back to Implementer.
+3. Repeat Steps 3-5 until approved.
+
+Approval output:
+```
+## REVIEW VERDICT - Reviewer - [timestamp]
+RESULT: APPROVED | CHANGES REQUIRED
+Open must-fix items: [count]
+Open should-fix items: [count]
+Phase status: COMPLETE | RETURN TO IMPLEMENTER
+```
+
+Approved handoff:
+```
+## HANDOFF - Reviewer - [timestamp]
+STATUS: COMPLETE
+NEXT_AGENT: Prompt Refiner
+SUMMARY: Phase 6 implementation approved.
+BLOCKERS: none
+```
+
+---
+
+## Step 6 - Prompt Refiner Pass
+
+Active agent: **Prompt Refiner**
+
+Read:
+1. `./agents/PROMPT_REFINER.md`
+2. `MEMORY_ROOT/REVIEW_NOTES.md`
+3. `MEMORY_ROOT/SESSION_STATE.md`
+4. `./prompts/PHASE_6_DATA_COLLECTION.md`
+
+Goal:
+- Capture prompt-level gaps discovered during execution.
+- Propose minimal prompt edits if recurring ambiguity was found.
+- If no edits are needed, record "no changes required".
+
+Always append an entry to `PROMPT_CHANGES.md`:
+```
+## Change [ID] - [timestamp]
+Requested by: Developer
+Issue: Phase 6 continuation after 5.5 with full multi-agent workflow
+Files changed: [list]
+Summary: [what changed and why]
+Related phases: 6
+Backward compatible: YES | NO
+```
+
+Handoff:
+```
+## HANDOFF - Prompt Refiner - [timestamp]
+STATUS: COMPLETE
+NEXT_AGENT: Memory
+SUMMARY: Prompt consistency pass complete.
+BLOCKERS: none
+```
+
+---
+
+## Step 7 - Memory Closeout
+
+Active agent: **Memory**
+
+Append final session summary to `SESSION_STATE.md`:
+```
+## Session End - [timestamp]
+Work completed this session: Phase 6 implemented, tested, reviewed, and prompt-refined.
+Files modified: [list]
+Next session should start with: Architect running prompts/PHASE_7_COMMIT_PARSER_AGENT.md
+```
+
+Then print:
+```
++-----------------------------------------------+
+| PHASE 6 COMPLETE - Data Collection and Export |
++-----------------------------------------------+
+| Architecture: Planned and logged              |
+| Implementation: Complete                      |
+| Testing: Complete                             |
+| Review: Approved                              |
+| Prompt refinement: Logged                     |
+| Next: prompts/PHASE_7_COMMIT_PARSER_AGENT.md |
++-----------------------------------------------+
 ```
 
 ---
 
 ## Notes
 
-- The receiving app (Phase 7) will be a **separate** application, not part of the Studio Pro extension
-- Phase 7 will build a file watcher + commit parser agent that reads the exported JSON files
-- This phase does NOT build the parser — only the export side
+- Phase 6 exports data only. It does not build the parser.
+- Phase 7 is a separate application that consumes these export files.
+- Keep all changes additive. Do not break existing Phase 5.5 behavior.

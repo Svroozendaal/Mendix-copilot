@@ -32,3 +32,45 @@ Files modified:
 - studio-pro-extension-csharp/ChangesPanel.cs
 - studio-pro-extension-csharp/ChangesPanel.Designer.cs
 - studio-pro-extension-csharp/GitChangesPanelHtml.cs
+
+## Phase 7 Architecture Plan - 2026-02-17 22:16:10
+### Decision 7a - parser application boundary
+- Create a standalone .NET console app named MendixCommitParser in folder MendixCommitParser/.
+- Keep it separate from Studio Pro extension runtime and dependencies.
+- The app consumes JSON export files produced by Phase 6.
+
+### Decision 7b - watcher contract
+- Watch C:\MendixGitData\exports\ for *.json using FileSystemWatcher.
+- On created file: parse -> enrich -> store structured output.
+- On success move source file to C:\MendixGitData\processed\.
+- On JsonException move source file to C:\MendixGitData\errors\.
+- On transient IO lock, retry file open briefly before failing.
+
+### Decision 7c - raw and structured models
+- Raw schema follows Phase 6 export shape: timestamp/project/branch/user/changelist.
+- Structured schema adds commit hash id, extracted entities, affected files, and aggregate metrics.
+- CommitId = SHA256(timestamp + project + branch).
+
+### Decision 7d - extraction heuristic
+- Parse file paths for Mendix conventions: Domain, Pages, Microflows, Resources.
+- Unknown patterns map to Type=Unknown and filename fallback.
+- Keep heuristic deterministic and side-effect free.
+
+### Decision 7e - storage
+- Persist structured output as pretty JSON into C:\MendixGitData\structured\[CommitId].json.
+- Storage layer ensures folder creation and atomic write.
+
+### Decision 7f - new project file plan
+Files to create:
+- MendixCommitParser/MendixCommitParser.csproj
+- MendixCommitParser/Program.cs
+- MendixCommitParser/Models/RawCommitData.cs
+- MendixCommitParser/Models/StructuredCommitData.cs
+- MendixCommitParser/Services/FileWatcherService.cs
+- MendixCommitParser/Services/CommitParserService.cs
+- MendixCommitParser/Services/EntityExtractorService.cs
+- MendixCommitParser/Storage/JsonStorage.cs
+- MendixCommitParser/.claude/agents/COMMIT_PARSER.md
+- MendixCommitParser/.claude/skills/entity-extraction/SKILL.md
+- MendixCommitParser/.claude/skills/pattern-detection/SKILL.md
+- MendixCommitParser/.claude/agent-memory/README.md
