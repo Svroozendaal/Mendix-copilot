@@ -3,7 +3,10 @@
 > Laatst bijgewerkt: 2026-02-16
 
 ## Doel
-Lokale HTTP API (`copilot-api`) voor de localhost web UI.
+Lokale HTTP API (`copilot-api`) als gedeelde backend voor alle UI-hosts:
+- localhost web UI
+- Studio Pro 11 panel
+- Studio Pro 10 panel
 
 ## Bestanden
 | Bestand | Doel | Status |
@@ -28,6 +31,7 @@ Lokale HTTP API (`copilot-api`) voor de localhost web UI.
   - `POST /api/plan`
   - `POST /api/plan/validate`
   - `POST /api/plan/execute`
+- `POST /api/plan` accepteert optionele context (`selectedType`, `module`, `qualifiedName`) voor betere module-inferentie vanuit embedded Studio Pro context.
 - `POST /api/plan/execute` gebruikt `text/event-stream` en stuurt:
   - `command_start`
   - `command_success`

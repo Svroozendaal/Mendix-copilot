@@ -3,7 +3,11 @@
 > Laatst bijgewerkt: 2026-02-16
 
 ## Doel
-Root source folder. Bevat alle TypeScript broncode voor Mendix Copilot hosts (MCP en localhost API).
+Root source folder. Bevat alle TypeScript backend/core code die wordt hergebruikt door:
+- MCP host
+- localhost web UI host
+- Studio Pro 11 panel host
+- Studio Pro 10 panel host
 
 ## Bestanden
 | Bestand | Doel | Status |

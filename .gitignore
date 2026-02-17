@@ -4,3 +4,9 @@ dist/
 *.tsbuildinfo
 coverage/
 .DS_Store
+**/bin/
+**/obj/
+tmp-extensionapi-samples/
+tmp-mcp-stderr.log
+tmp-mcp-stdout.log
+.tmp-extapi/

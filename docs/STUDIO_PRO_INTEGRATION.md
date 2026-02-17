@@ -1,37 +1,83 @@
-# Studio Pro Integratie (Vooruitblik)
+# Studio Pro Integratie
 
 > Laatst bijgewerkt: 2026-02-16
 
 ## Doel
-Beschrijven hoe de huidige localhost web UI architectuur later kan landen in een Mendix Studio Pro extensie.
 
-## Verwachte rol van de Studio Pro extensie
-Een toekomstige extensie (Extensibility API, C#) kan een Copilot-panel aanbieden met:
+Studio Pro integratie draait als niveau B thin shell:
 
-- embedded webview (of native UI)
-- dezelfde interacties als de huidige web UI (chat, explorer, quick actions)
-- lokale communicatie met dezelfde API-contracten
+- panel hostt de bestaande localhost web UI
+- backend blijft bestaande Node/TS API
+- geen secrets in extension code
 
-## API-hergebruik
-De extensie kan dezelfde endpoints gebruiken als de web UI:
+## Variants
 
-- lifecycle: `POST /api/connect`, `POST /api/disconnect`, `GET /api/status`
-- modelinspectie: `GET /api/app-info`, `GET /api/modules`, `GET /api/module/:name/domain-model`, `GET /api/search`
-- details: `GET /api/entity/:qualifiedName`, `GET /api/entity/:qualifiedName/associations`, `GET /api/microflow/:qualifiedName`, `GET /api/page/:qualifiedName`
-- audits: `GET /api/security`, `GET /api/entity-access/:qualifiedName`, `GET /api/best-practices`, `GET /api/dependencies/:qualifiedName`
-- chat/trace: `POST /api/chat` (SSE events)
-- change workflow: `POST /api/plan`, `POST /api/plan/validate`, `POST /api/plan/execute`
+### 1) Studio Pro 11 - web extension
 
-## Mogelijke extra endpoints voor Studio Pro
-Voor diepere IDE-integratie zijn later waarschijnlijk extra API's nodig:
+- Locatie: `studio-pro-extension/`
+- Technologie: TypeScript + `@mendix/extensions-api`
+- Pane embedt localhost UI direct via iframe
 
-- file/model watcher sync (bijv. wijzigingen in `.mpr` of modeldocumenten)
-- open-document deep link in Studio Pro (bijv. navigeer direct naar microflow/page/entity)
-- context push vanuit actieve editorselectie naar Copilot (huidige module/document)
+### 2) Studio Pro 10 - C# extension shell
 
-## Notitie
-Deze specificatie blijft op architectuurniveau. Er is in deze fase nog geen C# extensiecode toegevoegd.
+- Locatie: `studio-pro-extension-csharp/`
+- Technologie: `Mendix.StudioPro.ExtensionsAPI` (C#)
+- Pane laadt interne wrapper-pagina die localhost UI embedt via iframe
 
-## Prompt 3 readiness
-- De huidige Plan -> Approve -> Execute flow in de web UI kan 1-op-1 in een Studio Pro panel worden hergebruikt.
-- Alleen de execution backend hoeft later te veranderen (bijv. van lokale/simulated uitvoer naar Studio Pro extensie-acties).
+## API hergebruik (geen duplicatie)
+
+Alle varianten gebruiken dezelfde backend endpoints:
+
+- `POST /api/plan`
+- `POST /api/plan/validate`
+- `POST /api/plan/execute`
+- SSE events voor execute (`command_start`, `command_success`, `command_failed`, `commit_done`, `postcheck_results`, `final`, `error`)
+
+## Context bridge contract
+
+### Message types
+
+- `WB_CONTEXT`
+- `WB_CONTEXT_REQUEST`
+- `WB_EMBEDDED`
+
+### Payload (`WB_CONTEXT`)
+
+```json
+{
+  "selectedType": "module|entity|microflow|page|null",
+  "qualifiedName": "optional",
+  "module": "optional"
+}
+```
+
+### Bronnen
+
+- Studio Pro 11: active document info uit web extensions API
+- Studio Pro 10: `ActiveDocumentChanged` event uit C# extensions API
+
+Bij ontbrekende context: fallback naar `selectedType: null`.
+
+## Embedded UI gedrag
+
+- web UI detecteert embedded mode via `?embedded=1` en/of `WB_EMBEDDED`
+- UI toont badge: `Running inside Studio Pro`
+- ontvangen `WB_CONTEXT` stuurt sidebar highlight + default plan-context
+
+## Port/fallback gedrag
+
+Panel zoekt localhost UI in volgorde:
+
+1. `WB_COPILOT_WEB_UI_PORT`
+2. `localStorage['wb.copilot.webUiPort']`
+3. `5173`
+4. `3000`
+
+Als niet bereikbaar:
+
+`Copilot UI is not running. Start it with: npm run dev`
+
+## Security
+
+- Geen tokens/secrets in Studio Pro extensions
+- Secrets alleen server-side in Node `.env` / process env

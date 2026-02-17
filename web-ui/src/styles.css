@@ -47,6 +47,23 @@ input {
   font-size: 1.4rem;
 }
 
+.topbar-title-row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.studio-pro-badge {
+  border-radius: 999px;
+  border: 1px solid #90b2ea;
+  background: #e6efff;
+  color: #1b4188;
+  padding: 0.22rem 0.62rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
 .topbar p {
   margin: 0.4rem 0 0;
   color: var(--text-muted);

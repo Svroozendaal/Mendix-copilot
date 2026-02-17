@@ -1,192 +1,68 @@
-# Mendix Copilot — Project Intelligence
+# Mendix Copilot - Project Intelligence
 
-> Dit is de masterprompt voor het Mendix Copilot project. Claude Code leest dit bestand automatisch bij elke sessie.
+> Masterinstructies voor dit project.
 
-## Wat is dit project?
+## Projectdoel
 
-Mendix Copilot is een **MCP Server** (Model Context Protocol) die de Mendix Platform SDK en Model SDK wrapt, zodat Claude (via Claude Code of Claude Desktop) een Mendix applicatie kan inspecteren, analyseren en er vragen over beantwoorden.
+Mendix Copilot levert AI-ondersteuning op Mendix modelcontext via een gedeelde Node/TypeScript core.
 
-**Tech stack**: TypeScript, Node.js, MCP SDK, Mendix Platform SDK, Mendix Model SDK
-**Transport**: stdio (Claude Code) + Streamable HTTP (Claude Desktop)
-**Architectuur**: MCP Server met tools, resources en prompts
+## Hosts (actuele scope)
 
-## Projectstructuur
+1. MCP server (`src/index.ts`)
+2. Localhost API + Web UI (`src/web/api`, `web-ui`)
+3. Studio Pro 11 web extension (`studio-pro-extension`) met dockable pane
+4. Studio Pro 10 C# extension shell (`studio-pro-extension-csharp`) met dockable pane
 
-```
+## Studio Pro scope (belangrijk)
+
+- Huidige Studio Pro integratie is **niveau B**: embedded localhost web UI in een dockable pane.
+- De extension is een **thin shell**:
+  - hostt de web UI
+  - geeft context door (best effort)
+  - bevat geen planner/executor duplicatie
+- Execution blijft via bestaande Node/TS backend endpoints:
+  - `POST /api/plan`
+  - `POST /api/plan/validate`
+  - `POST /api/plan/execute`
+  - SSE events voor execution
+- **Niet in scope**: niveau C live model editing rechtstreeks vanuit de extension UI.
+
+## Security-afspraken
+
+- Secrets/tokens alleen server-side (`.env` voor Node process).
+- Nooit secrets in frontend of Studio Pro extension opnemen.
+- Geen tokens in logs, screenshots of docs committen.
+
+## Kernstructuur
+
+```text
 mendix-copilot/
-├── CLAUDE.md                          ← Dit bestand (projectintelligentie)
-├── package.json
-├── tsconfig.json
-├── .claude/
-│   ├── agents/                        ← Subagents voor gespecialiseerde taken
-│   │   ├── architect.md               ← Architectuur & designbeslissingen
-│   │   ├── implementer.md             ← Feature implementatie
-│   │   ├── reviewer.md                ← Code review & quality
-│   │   ├── documenter.md              ← Documentatie & info_*.md bestanden
-│   │   └── debugger.md                ← Debugging & troubleshooting
-│   ├── skills/
-│   │   ├── mendix-sdk/SKILL.md        ← Mendix SDK kennis & patronen
-│   │   ├── mcp-server/SKILL.md        ← MCP Server development patronen
-│   │   └── testing/SKILL.md           ← Test strategie & patronen
-│   └── commands/
-│       ├── implement.md               ← /implement <feature>
-│       ├── review.md                  ← /review <pad>
-│       ├── document.md                ← /document <folder>
-│       └── status.md                  ← /status
-├── src/
-│   ├── index.ts                       ← Entry point & MCP server setup
-│   ├── info_src.md                    ← Documentatie over src/
-│   ├── config/
-│   │   ├── index.ts                   ← Configuratie management
-│   │   └── info_config.md
-│   ├── mendix/
-│   │   ├── client.ts                  ← Mendix SDK client wrapper
-│   │   ├── cache.ts                   ← Model caching layer
-│   │   ├── serializers/               ← Model → Claude-friendly output
-│   │   │   ├── domain-model.ts
-│   │   │   ├── microflow.ts
-│   │   │   ├── page.ts
-│   │   │   ├── security.ts
-│   │   │   └── info_serializers.md
-│   │   └── info_mendix.md
-│   ├── tools/
-│   │   ├── navigation.ts              ← list_modules, get_app_info, search
-│   │   ├── domain-model.ts            ← entity & association tools
-│   │   ├── logic.ts                   ← microflow & nanoflow tools
-│   │   ├── pages.ts                   ← page & UI tools
-│   │   ├── security.ts                ← security audit tools
-│   │   ├── analysis.ts                ← best practices & dependency tools
-│   │   └── info_tools.md
-│   ├── resources/
-│   │   ├── app-overview.ts            ← mendix://app/overview resource
-│   │   └── info_resources.md
-│   └── prompts/
-│       ├── review-module.ts           ← Pre-built review prompt
-│       ├── explain-microflow.ts       ← Microflow explanation prompt
-│       ├── security-audit.ts          ← Security audit prompt
-│       └── info_prompts.md
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── info_tests.md
-├── docs/
-│   ├── ARCHITECTURE.md                ← Technisch ontwerp
-│   ├── DEVELOPMENT.md                 ← Development workflow
-│   ├── DECISIONS.md                   ← Architectuurbeslissingen log
-│   └── MVP-PLAN.md                    ← Product roadmap
-└── scripts/
-    └── info_scripts.md
+|- src/                        # core + mcp + localhost api
+|- web-ui/                     # React UI (gebruikt localhost api)
+|- shared/                     # Gedeelde host-contracten (WB_CONTEXT, etc.)
+|- studio-pro-extension/       # WellBased Copilot Panel voor Studio Pro 11
+|- studio-pro-extension-csharp/ # WellBased Copilot Panel voor Studio Pro 10
+|- docs/                       # architectuur, beslissingen, workflows
+|- tests/                      # unit/manual tests
 ```
 
-## Development Regels
+## Development regels
 
-### 🔴 ABSOLUTE REGELS (nooit overtreden)
+1. TypeScript strict houden; geen `any` of `ts-ignore` zonder zwaarwegende reden.
+2. Wijzigingen aan publieke gedragspaden altijd afdekken met tests of motiveerbaar testgat.
+3. Relevante `info_*.md` en docs bijwerken bij functionele wijzigingen.
+4. Kleine, iteratieve changes; eerst build/typecheck/test lokaal groen.
+5. Geen destructive git acties op bestaande user-wijzigingen.
 
-1. **Elke code-folder MOET een `info_[naam].md` bestand hebben** dat beschrijft:
-   - Wat de folder bevat en waarom
-   - Welke bestanden erin zitten en hun doel
-   - Hoe de onderdelen samenwerken
-   - Bekende beperkingen of aandachtspunten
-   - Wanneer dit bestand laatst is bijgewerkt
+## Documentatiechecklist bij wijzigingen
 
-2. **Geen code zonder tests** — schrijf minstens unit tests voor elke publieke functie
+- Update relevante `info_*.md` bestanden.
+- Leg belangrijke architectuurkeuzes vast in `docs/DECISIONS.md`.
+- Houd `docs/STUDIO_PRO_INTEGRATION.md` synchroon met gerealiseerde extensionstatus.
+- Volg `docs/DOCUMENTATION_STANDARD.md` voor format en kwaliteitsregels.
 
-3. **TypeScript strict mode** — geen `any` types, geen `// @ts-ignore`
+## Huidige status (2026-02-16)
 
-4. **Elke wijziging documenteren** — update relevante `info_*.md` bestanden na elke feature
-
-5. **Klein en iteratief** — maximaal 1 feature per implementatieronde, test voor je doorgaat
-
-### 🟡 DEVELOPMENT WORKFLOW (VS Code + Claude Code)
-
-**Ontwikkelflow per feature:**
-```
-1. /implement <feature-naam>     → Claude plant de implementatie
-2. Implementeer in kleine stappen → Tests schrijven → Code schrijven → Tests draaien
-3. /review                       → Code review door reviewer agent
-4. /document                     → Documentatie bijwerken
-5. /status                       → Overzicht van wat af is en wat nog moet
-```
-
-**Branch strategie:**
-- `main` — stabiele code, altijd werkend
-- `feat/<naam>` — feature branches, merge na review
-
-**Commit conventie:**
-```
-feat: add list_modules tool
-fix: handle empty domain model gracefully
-docs: update info_tools.md with new tool descriptions
-refactor: extract serializer logic from tools
-test: add unit tests for microflow serializer
-```
-
-### 🟢 CODE STIJL & PATRONEN
-
-**Imports**: Gebruik named exports, geen default exports
-**Error handling**: Altijd specifieke error types, nooit bare `catch(e)`
-**Logging**: Gebruik `console.error` voor errors die de gebruiker moet zien
-**Async**: Altijd `async/await`, geen `.then()` chains
-**Naming**:
-- Files: `kebab-case.ts`
-- Types/Interfaces: `PascalCase`
-- Functions/Variables: `camelCase`
-- Constants: `UPPER_SNAKE_CASE`
-
-**MCP Tool patroon:**
-```typescript
-// Elk tool in src/tools/*.ts volgt dit patroon:
-export function registerXxxTools(server: McpServer, mendixClient: MendixClient) {
-  server.tool(
-    "tool_name",
-    "Beschrijving die Claude helpt begrijpen WANNEER deze tool te gebruiken",
-    { /* zod schema voor parameters */ },
-    async (params) => {
-      // 1. Valideer input
-      // 2. Haal data op via mendixClient
-      // 3. Serialiseer naar Claude-friendly formaat
-      // 4. Return { content: [{ type: "text", text: result }] }
-    }
-  );
-}
-```
-
-**Serializer patroon:**
-```typescript
-// Elk bestand in src/mendix/serializers/*.ts:
-// - Neemt raw SDK objecten
-// - Retourneert een beknopte, leesbare string
-// - Focust op wat Claude nodig heeft, niet alles
-// - Bevat NOOIT SDK internals of implementation details
-```
-
-## Agent Instructies
-
-Wanneer je als Claude Code aan dit project werkt:
-
-1. **Lees ALTIJD eerst** de relevante `info_*.md` bestanden voordat je code wijzigt
-2. **Gebruik de agents** — delegeer naar de juiste subagent voor gespecialiseerde taken
-3. **Controleer de tests** — draai `npm test` na elke wijziging
-4. **Update documentatie** — als je code wijzigt, update de bijbehorende `info_*.md`
-5. **Raadpleeg DECISIONS.md** — voordat je een architectuurbeslissing neemt, check of er al een beslissing over genomen is
-6. **Log nieuwe beslissingen** — voeg belangrijke keuzes toe aan DECISIONS.md met rationale
-
-## Huidige Status
-
-<!-- Dit wordt automatisch bijgewerkt door /status -->
-**Fase**: MVP compleet (Prompt 1 t/m 8 geimplementeerd)
-**Volgende stap**: Stabilisatie, handmatige validatie op echte apps, en distributie (optionele Prompt 9)
-**Blokkeerders**: Geen
-
-## Permissions
-
-Claude Code heeft volledige toestemming voor:
-- Lezen en schrijven van alle bestanden in dit project
-- Uitvoeren van npm/npx commando's
-- Uitvoeren van TypeScript/Node.js code
-- Git operaties (commit, branch, merge)
-- Installeren van npm packages
-- Aanmaken en verwijderen van bestanden en folders
-- Uitvoeren van tests
-
-Claude Code hoeft NIET te vragen om toestemming voor bovenstaande acties in dit project.
+- MCP + localhost web UI + API zijn operationeel.
+- Studio Pro 11 en Studio Pro 10 panels draaien als niveau B thin shell.
+- Volgende focus: stabilisatie van contextkwaliteit en packaging/installatieflow.

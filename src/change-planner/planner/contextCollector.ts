@@ -3,7 +3,9 @@ import type { EntityInfo, MicroflowDetailsInfo, SearchResultInfo } from "../../m
 import type { IntentClassification } from "./intentClassifier.js";
 
 export interface PlannerRequestContext {
+  selectedType?: "module" | "entity" | "microflow" | "page";
   module?: string;
+  qualifiedName?: string;
 }
 
 export interface PlanningContext {
@@ -48,6 +50,18 @@ function searchScopeForIntent(intent: IntentClassification): "all" | "entities" 
   return "all";
 }
 
+function moduleFromQualifiedName(qualifiedName: string | undefined): string | undefined {
+  if (!qualifiedName) {
+    return undefined;
+  }
+
+  const separatorIndex = qualifiedName.indexOf(".");
+  if (separatorIndex <= 0) {
+    return undefined;
+  }
+  return qualifiedName.slice(0, separatorIndex);
+}
+
 export async function collectPlanningContext(
   core: CopilotCore,
   intent: IntentClassification,
@@ -55,7 +69,8 @@ export async function collectPlanningContext(
 ): Promise<PlanningContext> {
   const modulesResponse = await core.listModules();
   const modules = modulesResponse.meta.modules;
-  const inferredModule = requestContext.module || intent.module;
+  const inferredModule =
+    requestContext.module || moduleFromQualifiedName(requestContext.qualifiedName) || intent.module;
 
   const searchResults = (
     await core.searchModel(searchQueryForIntent(intent), searchScopeForIntent(intent))

@@ -50,8 +50,29 @@ function normalizeEntityQualifiedName(entity: string | undefined, moduleName: st
   return `${moduleName}.${entity}`;
 }
 
-function inferModule(intent: IntentClassification, context: { module?: string }, modules: Array<{ name: string; fromMarketplace: boolean }>): string {
-  return context.module || intent.module || firstUserModule(modules) || "Main";
+function moduleFromQualifiedName(qualifiedName: string | undefined): string | undefined {
+  if (!qualifiedName) {
+    return undefined;
+  }
+  const separatorIndex = qualifiedName.indexOf(".");
+  if (separatorIndex <= 0) {
+    return undefined;
+  }
+  return qualifiedName.slice(0, separatorIndex);
+}
+
+function inferModule(
+  intent: IntentClassification,
+  context: PlannerRequestContext,
+  modules: Array<{ name: string; fromMarketplace: boolean }>
+): string {
+  return (
+    context.module ||
+    moduleFromQualifiedName(context.qualifiedName) ||
+    intent.module ||
+    firstUserModule(modules) ||
+    "Main"
+  );
 }
 
 function inferEntityName(intent: IntentClassification): string {

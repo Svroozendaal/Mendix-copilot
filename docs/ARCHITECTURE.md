@@ -2,82 +2,83 @@
 
 > Laatst bijgewerkt: 2026-02-16
 
-## Systeemoverzicht
+## Overzicht
 
-Er zijn nu twee hosts op dezelfde core:
+Het systeem is opgesplitst in een gedeelde backend en meerdere hosts.
 
-1. MCP flow
+### Gedeelde backend (herbruikbaar)
 
-```
-Claude/Codex <-> MCP Protocol <-> MCP Server (src/index.ts) <-> Mendix SDK
-```
+- `src/core/` - businesslaag bovenop Mendix SDK
+- `src/change-planner/` - NL prompt -> ChangePlan DSL
+- `src/change-executor/` - validate/preview/execute pipeline
+- `src/web/api/` - localhost HTTP/SSE API
+- `src/mendix/` - Mendix SDK facade + serializers
 
-2. Localhost web flow
+### Hosts
 
-```
-React Web UI <-> copilot-api (src/web/api) <-> Core Service (src/core) <-> Mendix SDK
-```
+1. MCP host (`src/index.ts`)
+2. Localhost web UI host (`web-ui/`)
+3. Studio Pro 11 panel host (`studio-pro-extension/`)
+4. Studio Pro 10 panel host (`studio-pro-extension-csharp/`)
 
-## Lagen
+### Gedeeld host-contract
 
-### 1. MCP Server (`src/index.ts`)
-Entry point voor MCP tooling. Registreert tools, resources en prompts en draait op stdio transport.
+- `shared/studio-context.ts`
+  - `WB_CONTEXT`
+  - `WB_CONTEXT_REQUEST`
+  - `WB_EMBEDDED`
+  - payloadnormalisatie voor `selectedType/module/qualifiedName`
 
-### 2. Core Service (`src/core/`)
-Gedeelde applicatielaag bovenop `MendixClient` + serializers.
-Levert consistente `text + meta` resultaten voor API-hosts.
+## Dataflows
 
-### 3. API Server (`src/web/api/`)
-Lokale HTTP/SSE laag voor de web UI:
-- connect/disconnect/status lifecycle
-- inspectie-endpoints
-- chat-runner met tool trace events
-- plan/validate/execute endpoints voor ChangePlan workflows
+### Localhost web flow
 
-### 4. Change Planner (`src/change-planner/`)
-Natural language -> ChangePlan DSL (read-only planning, geen writes).
-
-### 5. Change Executor (`src/change-executor/`)
-Validatie, preview en deterministische command-dispatch via builders (huidig in simulated mode).
-
-### 6. Tools (`src/tools/`)
-MCP tool-registratie voor de MCP host.
-
-### 7. Mendix Client (`src/mendix/client.ts`)
-Wrapper rond Mendix Platform SDK + Model SDK. Verzorgt working copy lifecycle en modelextractie.
-
-### 8. Cache (`src/mendix/cache.ts`)
-In-memory cache voor tool workflows.
-
-### 9. Serializers (`src/mendix/serializers/`)
-Vertalen modeldata naar Claude/Codex-vriendelijke tekstoutput.
-
-### 10. Config (`src/config/`)
-Configuratie van token/app/branch.
-
-## Dataflow (web UI)
-
-```
-UI actie -> /api/* endpoint -> CopilotCore -> MendixClient -> SDK
-                               -> serializer text + meta -> UI rendering
+```text
+React Web UI -> /api/* -> Core Service -> Mendix SDK
 ```
 
-## Dataflow (chat)
+### Studio Pro 11 flow
 
-```
-POST /api/chat -> ChatRunner intent -> tool workflow
-               -> SSE events: tool_call/tool_result/final
-               -> UI toont trace + eindantwoord
-```
-
-## Dataflow (planning/execution)
-
-```
-POST /api/plan -> intent classifier -> context collector -> ChangePlan DSL
-POST /api/plan/validate -> validator + preview generator
-POST /api/plan/execute -> approval checks -> executor -> post-check best practices
+```text
+Studio Pro 11 extension (TS)
+-> embedded localhost web UI
+-> /api/* (Node/TS backend)
 ```
 
-## Beslissingen
+### Studio Pro 10 flow
 
-Zie `docs/DECISIONS.md`.
+```text
+Studio Pro 10 extension (C#)
+-> interne web wrapper + iframe localhost UI
+-> /api/* (Node/TS backend)
+```
+
+### Planning/execution flow (voor alle UI hosts gelijk)
+
+```text
+POST /api/plan
+POST /api/plan/validate
+POST /api/plan/execute (SSE)
+```
+
+## Studio Pro scope
+
+- Niveau B thin shell in beide Studio Pro varianten.
+- Geen planner/executor duplicatie in extensions.
+- Geen secrets in extensions.
+- Context sync is best effort via `WB_CONTEXT`.
+
+## Directory map
+
+```text
+mendix-copilot/
+|- src/
+|- web-ui/
+|- shared/
+|- studio-pro-extension/
+|- studio-pro-extension-csharp/
+|- docs/
+|- tests/
+```
+
+Detailoverzicht per map en functionaliteit: `docs/PROJECT_OVERVIEW.md`.

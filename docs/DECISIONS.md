@@ -129,3 +129,39 @@
 **Alternatieven**: Onvolledige directe writes via ad-hoc SDK reflectie (te fragiel en moeilijk te testen).
 
 ---
+
+### 2026-02-16 - Studio Pro integratie via niveau B embedded web UI
+
+**Context**: Studio Pro integratie moest snel beschikbaar zijn zonder planner/executor duplicatie of secret handling in de extension.
+**Beslissing**: Web extension met dockable pane als thin shell die de bestaande localhost web UI embedt en optionele context (`WB_CONTEXT`) doorgeeft.
+**Rationale**: Maximale herbruikbaarheid van bestaande `/api/plan*` + SSE flow, minimale extra complexiteit, en heldere securitygrens (secrets server-side).
+**Alternatieven**: Niveau C live editing met directe SDK-writes vanuit extension (te complex/risicovol voor deze fase).
+
+---
+
+### 2026-02-16 - Multi-host opsplitsing met gedeelde backend en contracten
+
+**Context**: De app moet naast localhost ook in Studio Pro 11 en Studio Pro 10 draaien zonder functionele duplicatie.
+**Beslissing**: Backend/core blijft centraal in `src/`; hosts worden expliciet gescheiden in `web-ui/`, `studio-pro-extension/` en `studio-pro-extension-csharp/`, met gedeeld berichtcontract in `shared/studio-context.ts`.
+**Rationale**: Minder regressierisico, hogere herbruikbaarheid en eenduidige context-sync over hosts.
+**Alternatieven**: Host-specifieke planner/executor implementaties (te veel duplicatie en onderhoud).
+
+---
+
+### 2026-02-16 - Studio Pro 10 support via C# extension shell
+
+**Context**: Studio Pro 10 ondersteunt geen web extension model gelijk aan Studio Pro 11.
+**Beslissing**: C# dockable pane extension met interne web wrapper die localhost UI embedt en context doorstuurt via `IWebView.PostMessage` en `ActiveDocumentChanged`.
+**Rationale**: Houdt dezelfde web UI/API flow intact en levert context-sync zonder live-editing complexiteit.
+**Alternatieven**: Geen Studio Pro 10 support, of volledige native C# UI met API duplicatie.
+
+---
+
+### 2026-02-16 - Repo-brede documentatiestandaard met verplichte info- en skill-taken
+
+**Context**: Documentatie en skill-instructies waren niet overal uniform, waardoor onderhoud en onboarding trager werd.
+**Beslissing**: Vaste standaard ingevoerd via `docs/DOCUMENTATION_STANDARD.md` en aangescherpte `documenter` agentregels; elke codefolder vereist `info_*.md`, en elke skill vereist een expliciete `## Taken` sectie.
+**Rationale**: Maakt documentatie auditbaar, herhaalbaar en beter schaalbaar bij groei van backend + multi-host structuur.
+**Alternatieven**: Ad-hoc documentatie per feature zonder uniforme kwaliteitsgates.
+
+---

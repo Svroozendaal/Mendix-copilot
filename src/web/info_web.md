@@ -3,7 +3,7 @@
 > Laatst bijgewerkt: 2026-02-16
 
 ## Doel
-Web-laag voor lokale Copilot UI integratie.
+Web-laag voor UI-hosts (localhost en embedded Studio Pro varianten).
 
 ## Subfolders
 | Folder | Doel |

@@ -1,96 +1,69 @@
 ---
 name: mcp-server
-description: Knowledge about building MCP servers. Use when adding tools, resources, or prompts to the MCP server, or when debugging MCP protocol issues.
+description: Kennis en workflow voor bouwen en onderhouden van MCP-serverfunctionaliteit in dit project. Gebruik bij toevoegen/wijzigen van tools, resources of prompts, en bij debugging van MCP-protocolgedrag.
 ---
 
-# MCP Server Development — Patronen & Kennis
+# MCP Server Skill
 
-## MCP SDK Setup
+## Doel
 
-```typescript
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+Werk veilig en consistent aan de MCP host in `src/index.ts`, inclusief tool/resource/prompt-registratie en foutafhandeling.
 
-const server = new McpServer({
-  name: "mendix-copilot",
-  version: "0.1.0",
-  capabilities: {
-    tools: {},
-    resources: {},
-    prompts: {},
-  },
-});
-```
+## Taken
 
-## Tools Registreren
+1. Inventariseer de gevraagde MCP-wijziging:
+   - tool,
+   - resource,
+   - prompt,
+   - protocol/debug.
+2. Pas code aan in de juiste map (`src/tools`, `src/resources`, `src/prompts`, `src/index.ts`).
+3. Controleer Zod schemas en tool-beschrijvingen op duidelijkheid voor modelgebruik.
+4. Voeg/actualiseer unit tests in `tests/unit/*`.
+5. Werk relevante `info_*.md` en `docs/DECISIONS.md` bij als de wijziging architectuurimpact heeft.
+6. Valideer met `npm run typecheck` en `npm run test:ci`.
+
+## Patronen
+
+### Tool registreren
 
 ```typescript
 import { z } from "zod";
 
 server.tool(
-  "tool_name",                    // snake_case naam
-  "Beschrijving voor Claude",     // Wanneer moet Claude deze tool gebruiken?
+  "tool_name",
+  "Korte beschrijving wanneer deze tool gebruikt moet worden",
   {
-    module: z.string().describe("Naam van de Mendix module"),
-    detailed: z.boolean().optional().describe("Toon extra details"),
+    module: z.string().describe("Module naam"),
   },
-  async ({ module, detailed }) => {
-    // Implementatie
-    return {
-      content: [{ type: "text", text: "Resultaat hier" }],
-    };
+  async ({ module }) => {
+    return { content: [{ type: "text", text: `Resultaat voor ${module}` }] };
   }
 );
 ```
 
-## Resources Registreren
+### Resource registreren
 
 ```typescript
-server.resource(
-  "app-overview",                          // resource naam
-  "mendix://app/overview",                 // URI template
-  async (uri) => ({
-    contents: [{
-      uri: uri.href,
-      mimeType: "text/plain",
-      text: "App overview content hier",
-    }],
-  })
-);
+server.resource("app-overview", "mendix://app/overview", async (uri) => ({
+  contents: [{ uri: uri.href, mimeType: "text/plain", text: "..." }],
+}));
 ```
 
-## Prompts Registreren
+### Prompt registreren
 
 ```typescript
 server.prompt(
   "review-module",
-  "Review een complete Mendix module",
+  "Review een module",
   [{ name: "module", description: "Module naam", required: true }],
   async ({ module }) => ({
-    messages: [{
-      role: "user",
-      content: {
-        type: "text",
-        text: `Analyseer de module "${module}" volledig...`,
-      },
-    }],
+    messages: [{ role: "user", content: { type: "text", text: `Review ${module}` } }],
   })
 );
 ```
 
-## Transport Starten
+## Kwaliteitsregels
 
-```typescript
-// stdio transport (voor Claude Code)
-const transport = new StdioServerTransport();
-await server.connect(transport);
-```
-
-## Best Practices
-
-1. **Tool descriptions zijn CRUCIAAL** — Claude kiest tools op basis van de description
-2. **Zod schemas** — gebruik `.describe()` op elk veld voor Claude
-3. **Return format** — altijd `{ content: [{ type: "text", text: ... }] }`
-4. **Error handling** — return errors als text content, gooi geen exceptions
-5. **Beknopt** — geef Claude alleen de info die het nodig heeft
-6. **Naming** — tool namen in `snake_case`, consistent prefix per categorie
+- Gebruik `snake_case` voor toolnamen.
+- Houd output compact en bruikbaar voor LLM-context.
+- Geef fouten terug als bruikbare content, niet als onduidelijke stacktraces.

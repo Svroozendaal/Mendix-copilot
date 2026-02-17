@@ -1,0 +1,27 @@
+{
+  "name": "wellbased-copilot-panel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mendix Studio Pro extension that embeds the WellBased Copilot localhost web UI",
+  "type": "module",
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "mendixComponent": {
+    "entryPoints": {
+      "main": "dist/main.js",
+      "ui": {
+        "dockablepane": "dist/dockablepane.js"
+      }
+    }
+  },
+  "dependencies": {
+    "@mendix/extensions-api": "0.6.0-mendix.11.7.0",
+    "mendix-copilot": "file:.."
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.3"
+  }
+}

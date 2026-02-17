@@ -1,80 +1,30 @@
 ---
 name: testing
-description: Test patterns and strategy for Mendix Copilot. Use when writing tests, setting up test infrastructure, or debugging test failures.
+description: Teststrategie en patronen voor deze codebase. Gebruik bij toevoegen of wijzigen van tests, bij regressie-analyse en bij valideren van codewijzigingen.
 ---
 
-# Testing Strategie — Mendix Copilot
+# Testing Skill
 
-## Framework
+## Doel
 
-- **Vitest** — snelle TypeScript-native test runner
-- Config in `vitest.config.ts`
-- Run: `npm test` (watch mode) of `npm run test:ci` (single run)
+Zorg dat wijzigingen aantoonbaar correct blijven via consistente unit tests en snelle regressiechecks.
 
-## Test Structuur
+## Taken
 
-```
-tests/
-├── unit/
-│   ├── tools/           ← Tool registratie & parameter validatie
-│   ├── serializers/     ← Output formatting tests
-│   ├── mendix/          ← Client & cache tests (met mocks)
-│   └── config/          ← Configuratie tests
-├── integration/         ← Echte SDK calls (optioneel, vereist PAT)
-└── mocks/
-    └── mendix-model.ts  ← Gedeelde mock data
-```
+1. Bepaal testscope:
+   - unit tests,
+   - contractvalidatie,
+   - regressie op bestaande features.
+2. Voeg tests toe in de juiste map onder `tests/unit/*`.
+3. Test zowel succespad als foutpad.
+4. Voorkom over-mocking: mock op servicegrenzen, niet op elk intern detail.
+5. Run minimaal:
+   - `npm run typecheck`
+   - `npm run test:ci`
+6. Werk testdocumentatie (`tests/info_tests.md` of relevante `info_*.md`) bij.
 
-## Unit Test Patroon
+## Richtlijnen
 
-```typescript
-import { describe, it, expect, vi } from "vitest";
-
-describe("serializeDomainModel", () => {
-  it("should list all entities with attributes", () => {
-    const mockDomainModel = createMockDomainModel();
-    const result = serializeDomainModel(mockDomainModel);
-
-    expect(result).toContain("Order");
-    expect(result).toContain("String");
-  });
-
-  it("should handle empty domain model gracefully", () => {
-    const empty = createMockDomainModel({ entities: [] });
-    const result = serializeDomainModel(empty);
-
-    expect(result).toContain("Geen entities gevonden");
-  });
-});
-```
-
-## Mocking Mendix SDK
-
-De Mendix SDK is complex. Mock op de juiste laag:
-
-```typescript
-// Mock de MendixClient, NIET individuele SDK calls
-const mockClient = {
-  getModules: vi.fn().mockResolvedValue([
-    { name: "MyModule", domainModel: { entities: [...] } }
-  ]),
-  getMicroflow: vi.fn().mockResolvedValue({
-    name: "MF_CreateOrder",
-    activities: [...]
-  }),
-};
-```
-
-## Wat MOET getest worden
-
-- [x] Elke serializer met representatieve input
-- [x] Elke serializer met lege/edge-case input
-- [x] Tool parameter validatie (ongeldige input)
-- [x] Error handling (SDK connection failures)
-- [x] Cache invalidatie
-
-## Wat NIET getest hoeft
-
-- MCP SDK protocol handling (dat test Anthropic)
-- Mendix SDK internals (dat test Mendix)
-- Specifieke Mendix model inhoud (verschilt per app)
+- Gebruik Vitest (`vitest.config.ts`).
+- Houd testnamen beschrijvend en gedraggericht.
+- Test nieuwe gedeelde contracten expliciet (zoals `shared/studio-context.ts`).

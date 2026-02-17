@@ -38,6 +38,12 @@ export interface ChatRequest {
   };
 }
 
+export interface PlanRequestContext {
+  selectedType?: "module" | "entity" | "microflow" | "page";
+  module?: string;
+  qualifiedName?: string;
+}
+
 export interface StreamEvent {
   event: string;
   data: unknown;
@@ -207,7 +213,7 @@ export async function getDependencies<TMeta>(qualifiedName: string): Promise<Api
   );
 }
 
-export async function createPlan(message: string, context?: { module?: string }): Promise<PlanResponse> {
+export async function createPlan(message: string, context?: PlanRequestContext): Promise<PlanResponse> {
   return requestJson<PlanResponse>("/api/plan", {
     method: "POST",
     body: JSON.stringify({

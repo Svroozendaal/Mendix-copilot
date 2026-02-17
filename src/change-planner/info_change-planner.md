@@ -19,6 +19,13 @@ Natural language change planning engine:
 | planner/planFromNaturalLanguage.ts | End-to-end planning flow en preview output |
 | prompts/plan.system.prompt.md | Systeemprompt voor toekomstige LLM-planning |
 
+## Request-context
+- Planner accepteert optionele request-context vanuit hosts (bijv. embedded Studio Pro):
+  - `selectedType` (`module`, `entity`, `microflow`, `page`)
+  - `module`
+  - `qualifiedName`
+- `qualifiedName` kan gebruikt worden om module-context af te leiden voor betere intent-resolutie.
+
 ## Veiligheidsregels
 - Maximaal 25 commands per plan.
 - Delete/rename altijd destructive.

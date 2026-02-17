@@ -20,6 +20,12 @@ import {
   type PlanPreview,
   type ApiStatus,
 } from "./api-client";
+import {
+  type WbContextPayload,
+  WB_CONTEXT_MESSAGE_TYPE,
+  WB_EMBEDDED_MESSAGE_TYPE,
+  normalizeWbContextPayload,
+} from "../../shared/studio-context";
 
 type Tab = "explorer" | "chat" | "actions";
 type ExecutionView = "progress" | "log";
@@ -115,6 +121,14 @@ interface PostcheckPayload {
   postCheck?: Array<{ module?: string; findingCount?: number }>;
 }
 
+function isEmbeddedFromQueryString(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const searchParams = new URLSearchParams(window.location.search);
+  return searchParams.get("embedded") === "1";
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
@@ -207,9 +221,53 @@ export function App() {
   const [executionLog, setExecutionLog] = useState<ExecutionLogEntry[]>([]);
   const [executionSummary, setExecutionSummary] = useState<string>("");
   const [executionView, setExecutionView] = useState<ExecutionView>("progress");
+  const [studioProMode, setStudioProMode] = useState<boolean>(() => isEmbeddedFromQueryString());
+  const [studioContext, setStudioContext] = useState<WbContextPayload | null>(null);
 
   useEffect(() => {
     void refreshStatus();
+  }, []);
+
+  useEffect(() => {
+    const messageHandler = (event: MessageEvent<unknown>): void => {
+      const messageRecord = asRecord(event.data);
+      if (!messageRecord || typeof messageRecord.type !== "string") {
+        return;
+      }
+
+      if (messageRecord.type === WB_EMBEDDED_MESSAGE_TYPE) {
+        setStudioProMode(true);
+        return;
+      }
+
+      if (messageRecord.type !== WB_CONTEXT_MESSAGE_TYPE) {
+        return;
+      }
+
+      const normalizedContext = normalizeWbContextPayload(messageRecord.payload);
+
+      setStudioProMode(true);
+      setStudioContext(normalizedContext);
+
+      if (normalizedContext.module) {
+        setSelectedModule(normalizedContext.module);
+        setQuickModule(normalizedContext.module);
+      }
+
+      if (normalizedContext.qualifiedName) {
+        setSelectedQualifiedName(normalizedContext.qualifiedName);
+        if (normalizedContext.selectedType === "microflow") {
+          setQuickMicroflow(normalizedContext.qualifiedName);
+        }
+      } else if (normalizedContext.selectedType === "module") {
+        setSelectedQualifiedName(null);
+      }
+    };
+
+    window.addEventListener("message", messageHandler);
+    return () => {
+      window.removeEventListener("message", messageHandler);
+    };
   }, []);
 
   const statusText = useMemo(() => {
@@ -493,9 +551,14 @@ export function App() {
     setExecutionView("progress");
 
     try {
-      const planned = await createPlan(message, {
-        module: selectedModule ?? undefined,
-      });
+      const planContext = {
+        selectedType: studioContext?.selectedType ?? undefined,
+        module: studioContext?.module ?? selectedModule ?? undefined,
+        qualifiedName: studioContext?.qualifiedName ?? selectedQualifiedName ?? undefined,
+      };
+      const hasContext = Boolean(planContext.selectedType || planContext.module || planContext.qualifiedName);
+
+      const planned = await createPlan(message, hasContext ? planContext : undefined);
 
       setActivePlan({
         prompt: message,
@@ -688,7 +751,10 @@ export function App() {
     <div className="app-shell">
       <header className="topbar">
         <div>
-          <h1>Mendix Copilot UI</h1>
+          <div className="topbar-title-row">
+            <h1>Mendix Copilot UI</h1>
+            {studioProMode ? <span className="studio-pro-badge">Running inside Studio Pro</span> : null}
+          </div>
           <p>Localhost Copilot naast Studio Pro, gebaseerd op dezelfde Mendix core.</p>
         </div>
       </header>

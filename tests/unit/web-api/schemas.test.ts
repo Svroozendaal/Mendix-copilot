@@ -79,9 +79,15 @@ describe("web api schemas", () => {
   it("parses plan body", () => {
     const parsed = planBodySchema.parse({
       message: "Create entity Invoice in module Sales",
-      context: { module: "Sales" },
+      context: {
+        selectedType: "entity",
+        module: "Sales",
+        qualifiedName: "Sales.Invoice",
+      },
     });
     expect(parsed.context?.module).toBe("Sales");
+    expect(parsed.context?.selectedType).toBe("entity");
+    expect(parsed.context?.qualifiedName).toBe("Sales.Invoice");
   });
 
   it("validates planId and approval token schemas", () => {

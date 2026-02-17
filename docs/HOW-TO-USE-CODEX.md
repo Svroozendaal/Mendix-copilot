@@ -55,7 +55,7 @@ Voer dit uit in de project root (`mendix-copilot/`):
 
 ```bash
 npm install
-npm run build
+npm run build:backend
 ```
 
 Na build moet `dist/index.js` bestaan.

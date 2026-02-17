@@ -3,56 +3,34 @@
 > Laatst bijgewerkt: 2026-02-16
 
 ## Doel
-Alle tests voor Mendix Copilot.
+Testlaag voor regressiecontrole van backend, planner/executor, MCP-contracten en web API.
 
 ## Structuur
 | Folder | Doel | Status |
 |--------|------|--------|
 | unit/ | Snelle geisoleerde tests met mocks | Geimplementeerd |
-| integration/ | Tests met echte SDK calls | Gepland |
-| mocks/ | Gedeelde mock builders | Geimplementeerd |
+| mocks/ | Gedeelde mock builders en testdata | Geimplementeerd |
+| integration/ | Echte SDK/integratietests | Gepland |
 
-## Unit test bestanden
-| Bestand | Doel |
-|---------|------|
-| unit/config/config.test.ts | Env/CLI config parsing |
-| unit/mendix/cache.test.ts | Cache gedrag en TTL |
-| unit/mendix/client.test.ts | Basisgedrag MendixClient connect/app info |
-| unit/serializers/domain-model.test.ts | Domain model serializer output |
-| unit/serializers/microflow.test.ts | Microflow serializer output |
-| unit/serializers/page.test.ts | Page serializer output |
-| unit/serializers/security.test.ts | Security serializer output |
-| unit/tools/navigation.test.ts | `get_app_info`, `list_modules`, `search_model` |
-| unit/tools/domain-model.test.ts | Domain model tool registratie en caching |
-| unit/tools/logic.test.ts | Logic tool registratie/output |
-| unit/tools/pages.test.ts | Page tools registratie/output |
-| unit/tools/security.test.ts | Security tools registratie/output |
-| unit/tools/analysis.test.ts | Analyse tools registratie/output |
-| unit/resources/app-overview.test.ts | Resource registratie en content |
-| unit/prompts/prompts.test.ts | Prompt registratie en instructietekst |
-| unit/web-api/schemas.test.ts | Zod schema validatie voor API input |
-| unit/web-api/handlers.test.ts | API route helper gedrag met mocks |
-| unit/change-planner/changePlan.schema.test.ts | ChangePlan DSL schema validatie |
-| unit/change-planner/intentClassifier.test.ts | Rule-based intent classificatie |
-| unit/change-planner/planFromNaturalLanguage.test.ts | NL -> ChangePlan generatie |
-| unit/change-executor/validator.test.ts | Plan validatie en conflictregels |
-| unit/change-executor/executor.test.ts | Preview + execution flow (simulated mode) |
-
-## Mock bestanden
-| Bestand | Doel |
-|---------|------|
-| mocks/mendix-model.ts | Builders voor microflow/page/security/analyse testdata |
+## Subfolder-documentatie
+- `tests/mocks/info_mocks.md`
+- `tests/unit/change-executor/info_change-executor.md`
+- `tests/unit/change-planner/info_change-planner.md`
+- `tests/unit/config/info_config.md`
+- `tests/unit/mendix/info_mendix.md`
+- `tests/unit/prompts/info_prompts.md`
+- `tests/unit/resources/info_resources.md`
+- `tests/unit/serializers/info_serializers.md`
+- `tests/unit/shared/info_shared.md`
+- `tests/unit/tools/info_tools.md`
+- `tests/unit/web-api/info_web-api.md`
 
 ## Handmatige tests
-- `tests/MANUAL-TEST.md`: end-to-end checklist voor MCP flow.
-- `tests/MANUAL-WEB-UI.md`: end-to-end checklist voor localhost web UI + API flow.
+- `tests/MANUAL-TEST.md`
+- `tests/MANUAL-WEB-UI.md`
 
-## Framework
-Vitest (`vitest.config.ts`).
-
-## Commandos
+## Commands
 - `npm test`
 - `npm run test:ci`
 - `npm run typecheck`
 - `npm run typecheck:web`
-- `npm run build`

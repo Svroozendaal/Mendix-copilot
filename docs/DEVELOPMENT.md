@@ -1,133 +1,58 @@
-# Development Workflow — VS Code + Claude Code
+# Development Workflow
 
-> Hoe je effectief werkt aan Mendix Copilot
+> Laatst bijgewerkt: 2026-02-16
 
-## Setup (eenmalig)
+## Doel
 
-### 1. Prerequisites
+Praktische workflow voor ontwikkelen, testen en documenteren in deze repo.
+
+## Vereisten
+
+- Node.js 20+
+- npm
+- Optioneel voor Studio Pro 10 extension: .NET SDK 8.0
+
+## Eerste setup
+
 ```bash
-# Node.js 20+ vereist
-node --version
-
-# Claude Code installeren
-npm install -g @anthropic-ai/claude-code
-
-# Git configureren
-git config user.name "Jouw Naam"
-git config user.email "jouw@email.com"
-```
-
-### 2. Project Clonen & Installeren
-```bash
-git clone <repo-url> mendix-copilot
-cd mendix-copilot
 npm install
 ```
 
-### 3. Environment Variables
-```bash
-# Maak een .env bestand (staat in .gitignore)
-cp .env.example .env
+Maak `.env` op basis van `.env.example` en vul minimaal `MENDIX_TOKEN` in.
 
-# Vul in:
-# MENDIX_TOKEN=jouw-personal-access-token
-# MENDIX_APP_ID=jouw-app-id
-# MENDIX_BRANCH=main
-```
+## Dagelijkse workflow
 
-### 4. VS Code Extensions (aanbevolen)
-- **Claude Code** — AI assistent
-- **TypeScript** — taal support (ingebouwd)
-- **Vitest** — test runner integratie
-- **Error Lens** — inline error weergave
+1. Start development servers:
+   - `npm run dev`
+   - of `.\commands\start-copilot.ps1`
+2. Werk feature/code uit.
+3. Run checks:
+   - `npm run typecheck`
+   - `npm run typecheck:web`
+   - `npm run test:ci`
+4. Build relevante hosts:
+   - `npm run build:backend`
+   - `npm run build:ui:web`
+   - `npm run build:ui:studio-pro-11`
+   - `npm run build:ui:studio-pro-10` (alleen met .NET SDK)
+5. Werk documentatie bij volgens `docs/DOCUMENTATION_STANDARD.md`.
 
-## Dagelijkse Workflow
+## Handige commands
 
-### VS Code + Claude Code Combinatie
+| Command | Doel |
+|---------|------|
+| `npm run dev` | API + localhost web UI |
+| `.\commands\start-copilot.ps1` | API + localhost web UI met `.env` loading |
+| `npm run dev:api` | Alleen backend API |
+| `npm run dev:web` | Alleen localhost web UI |
+| `npm run dev:mcp` | MCP server watch mode |
+| `npm run build:all-hosts` | Build backend + alle UI hosts |
+| `npm run test:ci` | Unit tests in CI-mode |
+| `.\commands\deploy-studio-pro10-panel.ps1 "<MendixAppFolder>"` | Build + kopieert Studio Pro 10 extensionbestanden naar Mendix app |
 
-**Layout**: Open VS Code met de terminal onderaan. Start Claude Code in die terminal.
+## Kwaliteitsregels
 
-```
-┌─────────────────────────────────────┐
-│  VS Code Editor                     │
-│  (code lezen, handmatige edits)     │
-│                                     │
-├─────────────────────────────────────┤
-│  Terminal: Claude Code              │
-│  > /implement add_list_modules_tool │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-### Stap-voor-stap
-
-1. **Start Claude Code** in de VS Code terminal:
-   ```bash
-   claude
-   ```
-
-2. **Check de status**:
-   ```
-   /status
-   ```
-
-3. **Implementeer een feature**:
-   ```
-   /implement <feature beschrijving>
-   ```
-   Claude leest automatisch CLAUDE.md, delegeert naar agents, schrijft code & tests.
-
-4. **Review**:
-   ```
-   /review
-   ```
-
-5. **Commit** (via Claude Code of handmatig):
-   ```
-   git add .
-   git commit -m "feat: beschrijving"
-   ```
-
-### Tips
-
-- **Laat Claude Code werken, lees mee in VS Code** — je ziet in real-time welke bestanden worden aangepast
-- **Ctrl+B** om een agent naar de achtergrond te sturen als hij lang bezig is
-- **Wees specifiek** — "implementeer de list_modules tool" is beter dan "bouw tools"
-- **Eén feature per sessie** — hou het klein en overzichtelijk
-- **Check tests** — als tests falen, gebruik `/implement fix failing tests`
-
-## Commands Referentie
-
-| Command | Wat het doet |
-|---------|-------------|
-| `/implement <feature>` | Plan en implementeer een feature met alle agents |
-| `/review [pad]` | Code review met de reviewer agent |
-| `/document [folder]` | Update documentatie met de documenter agent |
-| `/status` | Toon project status overzicht |
-
-## Testen
-
-```bash
-# Watch mode (bij development)
-npm test
-
-# Single run (CI)
-npm run test:ci
-
-# Specifiek bestand
-npx vitest run tests/unit/serializers/domain-model.test.ts
-```
-
-## Handmatig Testen met MCP Inspector
-
-```bash
-# MCP Inspector starten om de server te testen
-npx @modelcontextprotocol/inspector node dist/index.js
-```
-
-## Troubleshooting
-
-**"Cannot find module"** → `npm install` en dan `npx tsc --noEmit`
-**"MENDIX_TOKEN not set"** → Check `.env` bestand
-**"Working copy timeout"** → PAT is mogelijk verlopen, genereer een nieuwe
-**Tests falen** → `npm test` voor details, gebruik de debugger agent
+- Houd wijzigingen klein en toetsbaar.
+- Voeg tests toe voor nieuw gedrag.
+- Voeg/werk `info_*.md` bij in elke gewijzigde codefolder.
+- Leg architectuurkeuzes vast in `docs/DECISIONS.md`.

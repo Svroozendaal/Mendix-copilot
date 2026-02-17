@@ -91,7 +91,9 @@ export const planBodySchema = z
     message: z.string().trim().min(1, "message is verplicht"),
     context: z
       .object({
+        selectedType: z.enum(["module", "entity", "microflow", "page"]).optional(),
         module: z.string().trim().min(1).optional(),
+        qualifiedName: z.string().trim().min(1).optional(),
       })
       .optional(),
   })

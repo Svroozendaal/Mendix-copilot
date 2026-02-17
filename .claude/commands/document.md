@@ -1,5 +1,5 @@
 ---
-description: Werk alle documentatie bij. Scant de codebase en zorgt dat info_*.md bestanden actueel zijn.
+description: Werk alle documentatie bij volgens de documentatiestandaard. Scan de volledige codebase, vul info_*.md aan, valideer skills-taken en ruim verouderde docs op.
 argument-hint: <optioneel: specifieke folder>
 ---
 
@@ -7,12 +7,16 @@ argument-hint: <optioneel: specifieke folder>
 
 Gebruik de `documenter` agent om alle documentatie bij te werken.
 
-**Scope**: $ARGUMENTS (als leeg: scan het hele project)
+**Scope**: `$ARGUMENTS` (als leeg: scan het hele project)
 
-### Stappen:
-1. Scan alle folders in src/ voor `info_*.md` bestanden
-2. Controleer of elke code-folder een `info_*.md` heeft — maak aan als het ontbreekt
-3. Vergelijk de documentatie met de actuele code — update wat verouderd is
-4. Check docs/ARCHITECTURE.md — klopt het nog met de huidige structuur?
-5. Check docs/DECISIONS.md — zijn er ongedocumenteerde beslissingen?
-6. Rapporteer wat er bijgewerkt is
+### Stappen
+
+1. Scan alle codefolders (`src/`, `web-ui/`, `studio-pro-extension/`, `studio-pro-extension-csharp/`, `tests/`) op ontbrekende `info_*.md`.
+2. Controleer skills in `.claude/skills/*/SKILL.md` op aanwezigheid van `## Taken` met concrete stappen.
+3. Werk verouderde docs bij (`README.md`, `docs/*.md`) op basis van actuele code.
+4. Verwijder ongebruikte of verouderde documentatie en tijdelijke artefacten waar veilig.
+5. Valideer dat paden, scripts en componentnamen kloppen met de code.
+6. Rapporteer:
+   - wat is aangepast,
+   - welke documentatie nu volledig is,
+   - welke hiaten nog openstaan.

@@ -85,4 +85,18 @@ describe("planFromNaturalLanguage", () => {
       dataType: "Decimal",
     });
   });
+
+  it("infers module from qualified context when module is not provided", async () => {
+    const core = makeCoreMock();
+
+    const result = await planFromNaturalLanguage(core as never, {
+      message: "Maak een microflow voor order validatie",
+      context: {
+        selectedType: "microflow",
+        qualifiedName: "Sales.ACT_Order_Create",
+      },
+    });
+
+    expect(result.changePlan.target.module).toBe("Sales");
+  });
 });
