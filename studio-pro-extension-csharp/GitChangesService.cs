@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using System.Text;
 using LibGit2Sharp;
 
 namespace AutoCommitMessage;
@@ -52,6 +51,7 @@ public static class GitChangesService
             }
 
             using var repository = new Repository(discoveredPath);
+            var repositoryRoot = repository.Info.WorkingDirectory;
 
             var statusOptions = new StatusOptions
             {
@@ -72,13 +72,42 @@ public static class GitChangesService
                     continue;
                 }
 
-                changes.Add(new GitFileChange
+                var fileChange = new GitFileChange
                 {
                     FilePath = entry.FilePath,
                     Status = DetermineStatus(entry.State),
                     IsStaged = IsStaged(entry.State),
                     DiffText = GetDiffText(entry.FilePath, patch),
-                });
+                };
+
+                if (entry.FilePath.EndsWith(".mpr", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        var modelChanges = AnalyzeMprChanges(
+                            repository,
+                            repositoryRoot,
+                            NormalizeRepositoryPath(entry.FilePath));
+
+                        fileChange = fileChange with { ModelChanges = modelChanges };
+                    }
+                    catch (Exception exception)
+                    {
+                        fileChange = fileChange with
+                        {
+                            ModelChanges = new List<MendixModelChange>
+                            {
+                                new(
+                                    "Modified",
+                                    "Model Analysis",
+                                    Path.GetFileName(entry.FilePath),
+                                    $"Model analysis unavailable: {exception.Message}"),
+                            },
+                        };
+                    }
+                }
+
+                changes.Add(fileChange);
             }
 
             return new GitChangesPayload
@@ -167,5 +196,91 @@ public static class GitChangesService
             return DiffUnavailableMessage;
         }
     }
-}
 
+    private static List<MendixModelChange> AnalyzeMprChanges(
+        Repository repository,
+        string repositoryRoot,
+        string repositoryRelativeMprPath)
+    {
+        var workingDumpPath = CreateTempPath(".json");
+        var headDumpPath = CreateTempPath(".json");
+        var headMprPath = CreateTempPath(".mpr");
+
+        try
+        {
+            var workingMprPath = Path.Combine(repositoryRoot, repositoryRelativeMprPath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(workingMprPath))
+            {
+                MxToolService.DumpMpr(workingMprPath, workingDumpPath);
+            }
+            else
+            {
+                WriteEmptyDump(workingDumpPath);
+            }
+
+            if (TryWriteHeadMpr(repository, repositoryRelativeMprPath, headMprPath))
+            {
+                MxToolService.DumpMpr(headMprPath, headDumpPath);
+            }
+            else
+            {
+                WriteEmptyDump(headDumpPath);
+            }
+
+            return MendixModelDiffService.CompareDumps(workingDumpPath, headDumpPath);
+        }
+        finally
+        {
+            TryDeleteFile(workingDumpPath);
+            TryDeleteFile(headDumpPath);
+            TryDeleteFile(headMprPath);
+        }
+    }
+
+    private static bool TryWriteHeadMpr(Repository repository, string repositoryRelativeMprPath, string destinationPath)
+    {
+        var headCommit = repository.Head?.Tip;
+        if (headCommit is null)
+        {
+            return false;
+        }
+
+        var treeEntry = headCommit[repositoryRelativeMprPath];
+        if (treeEntry?.Target is not Blob headBlob)
+        {
+            return false;
+        }
+
+        using var outputStream = File.Create(destinationPath);
+        using var blobStream = headBlob.GetContentStream();
+        blobStream.CopyTo(outputStream);
+        return true;
+    }
+
+    private static string CreateTempPath(string extension) =>
+        Path.Combine(Path.GetTempPath(), $"autocommitmessage_{Guid.NewGuid():N}{extension}");
+
+    private static string NormalizeRepositoryPath(string path) =>
+        path.Replace('\\', '/');
+
+    private static void WriteEmptyDump(string outputPath)
+    {
+        const string emptyDumpJson = "{\"units\":[]}";
+        File.WriteAllText(outputPath, emptyDumpJson, new UTF8Encoding(false));
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Ignore cleanup failures for temp artifacts.
+        }
+    }
+}

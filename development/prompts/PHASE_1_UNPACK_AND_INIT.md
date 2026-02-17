@@ -29,15 +29,20 @@ Read every file in this package in the following order. Confirm you have read ea
 ```
 1. AGENTS.md                        ← System entry point and operating rules
 2. PRODUCT_PLAN.md                  ← What is being built and why
-3. agents/MEMORY.md                 ← Your current identity (Memory Agent)
-4. agents/ARCHITECT.md              ← Architect agent definition
-5. agents/IMPLEMENTER.md            ← Implementer agent definition
-6. agents/TESTER.md                 ← Tester agent definition
-7. agents/REVIEWER.md               ← Reviewer agent definition
-8. prompts/PHASE_2_PLANNING.md      ← What comes next
-9. prompts/PHASE_3_IMPLEMENTATION.md
-10. prompts/PHASE_4_TESTING.md
-11. prompts/PHASE_5_REVIEW.md
+3. HOW_TO_USE_PROMPT_REFINER.md     ← Guide for improving prompts
+4. agents/MEMORY.md                 ← Your current identity (Memory Agent)
+5. agents/ARCHITECT.md              ← Architect agent definition
+6. agents/IMPLEMENTER.md            ← Implementer agent definition
+7. agents/TESTER.md                 ← Tester agent definition
+8. agents/REVIEWER.md               ← Reviewer agent definition
+9. agents/PROMPT_REFINER.md         ← Prompt improvement agent
+10. prompts/PHASE_2_PLANNING.md     ← What comes next
+11. prompts/PHASE_3_IMPLEMENTATION.md
+12. prompts/PHASE_4_TESTING.md
+13. prompts/PHASE_5_REVIEW.md
+14. prompts/PHASE_5.5_MODEL_DIFF_ANALYSIS.md
+15. prompts/PHASE_6_DATA_COLLECTION.md
+16. prompts/PHASE_7_COMMIT_PARSER_AGENT.md
 ```
 
 After reading each file, output:
@@ -58,6 +63,7 @@ Check if each of these files exists:
 - `./claude/agent-memory/DECISIONS_LOG.md`
 - `./claude/agent-memory/PROGRESS.md`
 - `./claude/agent-memory/REVIEW_NOTES.md`
+- `./claude/agent-memory/PROMPT_CHANGES.md`
 
 For each file that does not exist, create it using the initial content defined in `agents/MEMORY.md`.
 
@@ -131,8 +137,8 @@ Print this summary to the console:
 ╔══════════════════════════════════════════╗
 ║  PHASE 1 COMPLETE — Unpack & Initialize  ║
 ╠══════════════════════════════════════════╣
-║  Package files read:     11 / 11         ║
-║  Memory files created:   4 / 4           ║
+║  Package files read:     16 / 16         ║
+║  Memory files created:   5 / 5           ║
 ║  Environment checks:     X / 8           ║
 ║  Blockers:               [none | count]  ║
 ╠══════════════════════════════════════════╣

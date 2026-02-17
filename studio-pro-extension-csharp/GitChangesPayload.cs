@@ -26,6 +26,11 @@ public sealed record GitFileChange
     /// Gets the textual patch content for this file, or an informative fallback message.
     /// </summary>
     public string DiffText { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets optional model-level change details for .mpr files.
+    /// </summary>
+    public IReadOnlyList<MendixModelChange>? ModelChanges { get; init; }
 }
 
 /// <summary>

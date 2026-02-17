@@ -31,7 +31,8 @@ You own `./claude/agent-memory/`. Initialize these files if they do not exist:
 ├── SESSION_STATE.md     ← Current phase, step, active agent, last handoff
 ├── DECISIONS_LOG.md     ← All architectural decisions with rationale
 ├── PROGRESS.md          ← File-by-file implementation progress
-└── REVIEW_NOTES.md      ← Tester bugs and Reviewer change requests
+├── REVIEW_NOTES.md      ← Tester bugs and Reviewer change requests
+└── PROMPT_CHANGES.md    ← Log of prompt modifications (Prompt Refiner agent)
 ```
 
 ---
@@ -88,6 +89,27 @@ No files created yet. Implementer agent will populate this in Phase 3.
 ## Project: Mendix Studio Pro 10 Git Changes Extension
 
 No issues logged yet.
+```
+
+### `PROMPT_CHANGES.md` initial content:
+```markdown
+# Prompt Changes Log
+## Project: Mendix Studio Pro 10 Git Changes Extension
+
+This file tracks all modifications to prompts and agent definitions made by the Prompt Refiner agent.
+
+## Format
+Each entry includes:
+- Change ID
+- Timestamp
+- Requester (developer)
+- Issue description
+- Files changed
+- Backward compatibility status
+
+---
+
+No changes recorded yet. Original package prompts are active.
 ```
 
 ---

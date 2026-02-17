@@ -43,6 +43,7 @@ Five specialized agents exist in the `./agents/` directory. Each agent has a ded
 | **Tester** | `agents/TESTER.md` | Validates and stress-tests | Test scenarios, edge case coverage, build checks |
 | **Reviewer** | `agents/REVIEWER.md` | Quality gate | Code quality, naming conventions, error handling review |
 | **Memory** | `agents/MEMORY.md` | Preserves context | Session state, decisions log, progress tracking |
+| **Prompt Refiner** | `agents/PROMPT_REFINER.md` | Meta-agent: improves prompts | Prompt clarification, consistency, customization |
 
 ### Agent Hierarchy
 
@@ -73,6 +74,9 @@ The project is divided into 5 phases. Each phase has a dedicated masterprompt in
 | **Phase 3** | `PHASE_3_IMPLEMENTATION.md` | Implementer | Write all C# code, build and verify |
 | **Phase 4** | `PHASE_4_TESTING.md` | Tester | Run all test scenarios, report results |
 | **Phase 5** | `PHASE_5_REVIEW.md` | Reviewer | Final code review, approve or request changes |
+| **Phase 5.5** | `PHASE_5.5_MODEL_DIFF_ANALYSIS.md` | Architect, Implementer | Show what changed inside .mpr files (entities, pages, microflows) |
+| **Phase 6** | `PHASE_6_DATA_COLLECTION.md` | Architect, Implementer | Add export functionality to collect real-world commit data |
+| **Phase 7** | `PHASE_7_COMMIT_PARSER_AGENT.md` | Architect, Implementer | Build parser app + agent structure for commit analysis |
 
 ---
 
@@ -107,6 +111,7 @@ All persistent state lives in `./claude/agent-memory/`. The Memory agent owns th
 | `DECISIONS_LOG.md` | Architect | Implementer, Reviewer | Architecture decisions with rationale |
 | `PROGRESS.md` | Implementer | Tester, Reviewer | Which files are created/modified, build status |
 | `REVIEW_NOTES.md` | Reviewer | Implementer | Open issues, change requests |
+| `PROMPT_CHANGES.md` | Prompt Refiner | All agents | Log of prompt modifications and why |
 
 ### Handoff format
 Every agent ends its work by appending to `SESSION_STATE.md`:

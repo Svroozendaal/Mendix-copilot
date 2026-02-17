@@ -62,6 +62,10 @@ internal static class GitChangesPanelHtml
       padding: 3px 10px;
       font-weight: 600;
       font-size: 11px;
+      max-width: 480px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .btn {
       border: 1px solid #2563eb;
@@ -97,7 +101,7 @@ internal static class GitChangesPanelHtml
     }
     .layout {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: 0.8fr 1.2fr;
       gap: 12px;
       height: 100%;
       min-height: 0;
@@ -161,10 +165,15 @@ internal static class GitChangesPanelHtml
     .status-added { color: #228b22; }
     .status-deleted { color: #b22222; }
     .status-renamed { color: #b8860b; }
+    .right-content {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 1;
+    }
     pre {
       margin: 0;
       padding: 10px;
-      flex: 1;
       overflow: auto;
       white-space: pre;
       font-size: 12px;
@@ -172,7 +181,45 @@ internal static class GitChangesPanelHtml
       background: #ffffff;
       color: #111827;
       font-family: Consolas, "Courier New", monospace;
+      min-height: 80px;
+      max-height: 22%;
+      border-bottom: 1px solid #e5eaf5;
     }
+    .model-changes {
+      padding: 8px 10px 10px 10px;
+      overflow: auto;
+      flex: 1;
+      min-height: 0;
+      display: none;
+    }
+    .model-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+    .model-group {
+      margin-bottom: 8px;
+      border: 1px solid #e2e8f5;
+      border-radius: 6px;
+      background: #fbfdff;
+    }
+    .model-group > summary {
+      cursor: pointer;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .model-list {
+      margin: 0 0 8px 0;
+      padding: 0 22px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .model-change-added { color: #228b22; }
+    .model-change-modified { color: #236cc0; }
+    .model-change-deleted { color: #b22222; }
     @media (max-width: 960px) {
       .layout {
         grid-template-columns: 1fr;
@@ -213,6 +260,19 @@ internal static class GitChangesPanelHtml
       }
     }
 
+    function modelChangeClass(changeType) {
+      switch (changeType) {
+        case "Added":
+          return "model-change-added";
+        case "Modified":
+          return "model-change-modified";
+        case "Deleted":
+          return "model-change-deleted";
+        default:
+          return "";
+      }
+    }
+
     function renderCard(content, className) {
       const card = element("div", className ? `card ${className}` : "card");
       card.textContent = content;
@@ -240,11 +300,89 @@ internal static class GitChangesPanelHtml
       tableWrap.appendChild(table);
       listPanel.appendChild(tableWrap);
 
-      const diffPanel = element("section", "panel");
-      diffPanel.appendChild(element("div", "panel-title", "Diff"));
+      const detailsPanel = element("section", "panel");
+      detailsPanel.appendChild(element("div", "panel-title", "Diff"));
+
+      const rightContent = element("div", "right-content");
       const diffText = element("pre");
       diffText.textContent = "Select a file to view diff.";
-      diffPanel.appendChild(diffText);
+      rightContent.appendChild(diffText);
+
+      const modelChangesContainer = element("div", "model-changes");
+      rightContent.appendChild(modelChangesContainer);
+      detailsPanel.appendChild(rightContent);
+
+      function renderModelChanges(selectedChange) {
+        const modelChanges = selectedChange && Array.isArray(selectedChange.ModelChanges)
+          ? selectedChange.ModelChanges
+          : [];
+        const isMpr = selectedChange &&
+          typeof selectedChange.FilePath === "string" &&
+          selectedChange.FilePath.toLowerCase().endsWith(".mpr");
+
+        modelChangesContainer.replaceChildren();
+        if (!isMpr && modelChanges.length === 0) {
+          modelChangesContainer.style.display = "none";
+          return;
+        }
+
+        modelChangesContainer.style.display = "block";
+        modelChangesContainer.appendChild(element("div", "model-title", "Model changes (.mpr)"));
+
+        if (modelChanges.length === 0) {
+          const emptyGroup = element("div", "model-group");
+          const emptyMessage = element("div", null, "No model-level changes detected.");
+          emptyMessage.style.padding = "8px";
+          emptyMessage.style.fontSize = "12px";
+          emptyMessage.style.color = "#475569";
+          emptyGroup.appendChild(emptyMessage);
+          modelChangesContainer.appendChild(emptyGroup);
+          return;
+        }
+
+        const groups = new Map();
+        modelChanges.forEach((change) => {
+          const key = change.ElementType || "Other";
+          if (!groups.has(key)) {
+            groups.set(key, []);
+          }
+          groups.get(key).push(change);
+        });
+
+        Array.from(groups.keys())
+          .sort((a, b) => a.localeCompare(b))
+          .forEach((type) => {
+            const groupChanges = groups.get(type) || [];
+            const groupDetails = element("details", "model-group");
+            groupDetails.open = true;
+
+            const summary = element("summary", null, `${type}: ${groupChanges.length} changed`);
+            groupDetails.appendChild(summary);
+
+            const list = element("ul", "model-list");
+            groupChanges
+              .slice()
+              .sort((a, b) => (a.ElementName || "").localeCompare(b.ElementName || ""))
+              .forEach((change) => {
+                const item = element("li");
+                const changeClass = modelChangeClass(change.ChangeType);
+                if (changeClass) {
+                  item.classList.add(changeClass);
+                }
+
+                const name = change.ElementName || "<unnamed>";
+                const typeLabel = change.ChangeType || "Changed";
+                const details = change.Details && String(change.Details).trim().length > 0
+                  ? ` - ${change.Details}`
+                  : "";
+                item.textContent = `${name} (${typeLabel})${details}`;
+                list.appendChild(item);
+              });
+
+            groupDetails.appendChild(list);
+            modelChangesContainer.appendChild(groupDetails);
+          });
+      }
 
       const rows = [];
       function selectRow(index) {
@@ -255,6 +393,7 @@ internal static class GitChangesPanelHtml
         const selectedChange = changes[index];
         if (!selectedChange) {
           diffText.textContent = "Diff unavailable";
+          renderModelChanges(null);
           return;
         }
 
@@ -262,6 +401,8 @@ internal static class GitChangesPanelHtml
           selectedChange.DiffText && selectedChange.DiffText.trim().length > 0
             ? selectedChange.DiffText
             : "Diff unavailable";
+
+        renderModelChanges(selectedChange);
       }
 
       changes.forEach((change, index) => {
@@ -293,7 +434,7 @@ internal static class GitChangesPanelHtml
       }
 
       layout.appendChild(listPanel);
-      layout.appendChild(diffPanel);
+      layout.appendChild(detailsPanel);
       return layout;
     }
 

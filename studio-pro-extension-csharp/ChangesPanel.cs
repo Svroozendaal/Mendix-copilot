@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace AutoCommitMessage;
 
@@ -42,6 +37,7 @@ public partial class ChangesPanel : UserControl
     {
         this.projectPath = projectPath ?? string.Empty;
         InitializeComponent();
+        ClearModelChanges();
     }
 
     private async void btnRefresh_Click(object? sender, EventArgs e)
@@ -53,6 +49,7 @@ public partial class ChangesPanel : UserControl
 
         isRefreshing = true;
         btnRefresh.Enabled = false;
+        lblStatus.Text = "Loading changes...";
 
         try
         {
@@ -103,6 +100,7 @@ public partial class ChangesPanel : UserControl
         {
             lvChanges.Items.Clear();
             rtbDiff.Clear();
+            ClearModelChanges();
 
             if (!payload.IsGitRepo)
             {
@@ -154,19 +152,120 @@ public partial class ChangesPanel : UserControl
         if (lvChanges.SelectedItems.Count == 0)
         {
             rtbDiff.Clear();
+            ClearModelChanges();
             return;
         }
 
         var selectedItem = lvChanges.SelectedItems[0];
-        if (selectedItem.Tag is GitFileChange change)
+        if (selectedItem.Tag is not GitFileChange change)
         {
-            rtbDiff.Text = string.IsNullOrWhiteSpace(change.DiffText)
-                ? "Diff unavailable"
-                : change.DiffText;
+            rtbDiff.Text = "Diff unavailable";
+            ClearModelChanges();
+            return;
+        }
+
+        rtbDiff.Text = string.IsNullOrWhiteSpace(change.DiffText)
+            ? "Diff unavailable"
+            : change.DiffText;
+
+        if (change.ModelChanges is { Count: > 0 })
+        {
+            PopulateModelChanges(change.ModelChanges);
+        }
+        else if (change.FilePath.EndsWith(".mpr", StringComparison.OrdinalIgnoreCase))
+        {
+            PopulateModelChanges(
+                new[]
+                {
+                    new MendixModelChange(
+                        "Modified",
+                        "Model Analysis",
+                        Path.GetFileName(change.FilePath),
+                        "No model-level changes detected."),
+                });
         }
         else
         {
-            rtbDiff.Text = "Diff unavailable";
+            ClearModelChanges();
+        }
+    }
+
+    private void PopulateModelChanges(IReadOnlyList<MendixModelChange> changes)
+    {
+        treeModelChanges.BeginUpdate();
+        try
+        {
+            treeModelChanges.Nodes.Clear();
+            splitLeft.Panel2Collapsed = false;
+            OptimizeLayoutForModelChanges();
+
+            var grouped = changes
+                .GroupBy(change => change.ElementType)
+                .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var group in grouped)
+            {
+                var parentNode = new TreeNode($"{group.Key}: {group.Count()} changed");
+
+                foreach (var change in group.OrderBy(item => item.ElementName, StringComparer.OrdinalIgnoreCase))
+                {
+                    var label = $"{change.ElementName} ({change.ChangeType})";
+                    if (!string.IsNullOrWhiteSpace(change.Details))
+                    {
+                        label = $"{label} - {change.Details}";
+                    }
+
+                    var childNode = new TreeNode(label)
+                    {
+                        ForeColor = change.ChangeType switch
+                        {
+                            "Added" => AddedColor,
+                            "Modified" => ModifiedColor,
+                            "Deleted" => DeletedColor,
+                            _ => DefaultColor,
+                        },
+                    };
+
+                    parentNode.Nodes.Add(childNode);
+                }
+
+                treeModelChanges.Nodes.Add(parentNode);
+            }
+
+            treeModelChanges.ExpandAll();
+        }
+        finally
+        {
+            treeModelChanges.EndUpdate();
+        }
+    }
+
+    private void ClearModelChanges()
+    {
+        treeModelChanges.Nodes.Clear();
+        splitLeft.Panel2Collapsed = true;
+    }
+
+    private void OptimizeLayoutForModelChanges()
+    {
+        if (splitContainer.Width > 0)
+        {
+            var maxLeft = splitContainer.Width - splitContainer.Panel2MinSize - splitContainer.SplitterWidth;
+            if (maxLeft > splitContainer.Panel1MinSize)
+            {
+                var desiredLeft = (int)(splitContainer.Width * 0.72);
+                splitContainer.SplitterDistance = Math.Clamp(desiredLeft, splitContainer.Panel1MinSize, maxLeft);
+            }
+        }
+
+        if (splitLeft.Height > 0)
+        {
+            var maxTop = splitLeft.Height - splitLeft.Panel2MinSize - splitLeft.SplitterWidth;
+            if (maxTop > splitLeft.Panel1MinSize)
+            {
+                var desiredTop = Math.Max(120, splitLeft.Height / 4);
+                splitLeft.SplitterDistance = Math.Clamp(desiredTop, splitLeft.Panel1MinSize, maxTop);
+            }
         }
     }
 
@@ -182,4 +281,3 @@ public partial class ChangesPanel : UserControl
         };
     }
 }
-
